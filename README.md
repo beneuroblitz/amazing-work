@@ -7,15 +7,16 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 
 - Vorschauzeit ist immer fix: `5 Sekunden`
 - Spiel startet erst nach Klick auf `Start`
+- Profilname kann gespeichert werden
+- Highscore wird lokal im Browser gespeichert (`localStorage`)
 - Nach der Vorschau: Fog-of-War + pulsierende Torch um den Spieler
 - Im Fog sind die Maze-Waende nicht sichtbar
 - Bewegte Route bleibt als Lichtpfad sichtbar
 - Der Vorschaupfad baut sich in ca. `1-2s` animiert auf, danach Countdown: `3, 2, 1, GO`
-- Level-Groesse steigt von `5x5` bis `9x9`
 - Modi:
-  - `Easy`: kuerzere Pflichtpfade
-  - `Normal`: laengerer Pflichtpfad
-  - `Hard`: noch laengerer Pflichtpfad
+  - `Easy`: Gridbereich `5x5` bis `6x6`
+  - `Normal`: Gridbereich `7x7` bis `8x8`
+  - `Hard`: Gridbereich `9x9` bis `10x10`
 - Pro Run: `3` Leben (`⚡⚡⚡`)
 - Bei Wandkontakt: Strike-Animation (Flash + Shake), 1 Leben weg und weiterspielen an der Fehlerposition
 - Beim Level-Clear erscheint ein kurzer Reward-Screen

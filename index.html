@@ -26,12 +26,23 @@
         </div>
       </section>
 
+      <section class="profile" aria-label="Profil und Highscore">
+        <div class="profile-row">
+          <label for="profileInput">Profil:</label>
+          <input id="profileInput" type="text" maxlength="18" placeholder="Dein Name" />
+          <button id="saveProfileBtn" class="btn">Speichern</button>
+        </div>
+        <p id="profileText">Profil: Player</p>
+        <p id="highscoreText">Highscore: 0</p>
+      </section>
+
       <section class="hud" aria-label="Spielstatus">
         <p id="statusText">Merke dir den Weg. 5 Sekunden Vorschau.</p>
         <div class="stats">
           <span id="levelText">Level: 1</span>
           <span id="gridText">Grid: 5x5</span>
           <span id="livesText">Leben: ⚡⚡⚡</span>
+          <span id="scoreText">Score: 0</span>
           <span id="movesText">Moves: 0</span>
           <span id="timeText">Zeit: 0s</span>
         </div>
@@ -44,15 +55,6 @@
       <section class="controls" aria-label="Steuerung">
         <button id="newGameBtn" class="btn">Start</button>
         <button id="nextLevelBtn" class="btn" disabled>Naechstes Level</button>
-      </section>
-
-      <section class="mobile-controls" aria-label="Touch-Steuerung">
-        <button data-dir="up" class="pad">▲</button>
-        <div class="row">
-          <button data-dir="left" class="pad">◀</button>
-          <button data-dir="down" class="pad">▼</button>
-          <button data-dir="right" class="pad">▶</button>
-        </div>
       </section>
 
       <footer class="hint">

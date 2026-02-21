@@ -76,6 +76,38 @@ body {
   flex-wrap: wrap;
 }
 
+.profile {
+  margin-bottom: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.54rem;
+  color: var(--navy-soft);
+}
+
+.profile input {
+  border: 1px solid rgba(29, 36, 120, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--navy);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.56rem;
+  width: min(220px, 100%);
+}
+
+.profile p {
+  margin: 0;
+  color: var(--navy-soft);
+  font-size: 0.53rem;
+}
+
 .hud {
   display: flex;
   flex-wrap: wrap;
@@ -147,29 +179,6 @@ canvas {
   cursor: not-allowed;
 }
 
-.mobile-controls {
-  margin-top: 16px;
-  display: none;
-  place-items: center;
-  gap: 8px;
-}
-
-.mobile-controls .row {
-  display: flex;
-  gap: 8px;
-}
-
-.pad {
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
-  border: 1px solid rgba(29, 36, 120, 0.4);
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--navy);
-  font-family: inherit;
-  font-size: 0.9rem;
-}
-
 .hint {
   margin-top: 12px;
   color: var(--navy-soft);
@@ -178,10 +187,9 @@ canvas {
 }
 
 @media (max-width: 780px) {
-  .mobile-controls {
-    display: grid;
+  .canvas-wrap {
+    padding: 6px;
   }
-
   .stats {
     width: 100%;
   }

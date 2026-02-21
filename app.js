@@ -5,14 +5,21 @@ const statusText = document.getElementById("statusText");
 const levelText = document.getElementById("levelText");
 const gridText = document.getElementById("gridText");
 const livesText = document.getElementById("livesText");
+const scoreText = document.getElementById("scoreText");
 const movesText = document.getElementById("movesText");
 const timeText = document.getElementById("timeText");
+const profileInput = document.getElementById("profileInput");
+const saveProfileBtn = document.getElementById("saveProfileBtn");
+const profileText = document.getElementById("profileText");
+const highscoreText = document.getElementById("highscoreText");
 const nextLevelBtn = document.getElementById("nextLevelBtn");
 const newGameBtn = document.getElementById("newGameBtn");
 const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
 
 const PREVIEW_MS = 5000;
 const MAX_LIVES = 3;
+const PROFILE_KEY = "amazing_profile_name";
+const HIGHSCORE_KEY = "amazing_highscores_v1";
 
 const DIRS = {
   up: { dx: 0, dy: -1, wall: 0, opposite: 2 },
@@ -33,9 +40,9 @@ const KEYMAP = {
 };
 
 const DIFFICULTY = {
-  easy: { name: "Easy", minRatio: 0.32 },
-  normal: { name: "Normal", minRatio: 0.45 },
-  hard: { name: "Hard", minRatio: 0.58 },
+  easy: { name: "Easy", minRatio: 0.32, minGrid: 5, maxGrid: 6 },
+  normal: { name: "Normal", minRatio: 0.45, minGrid: 7, maxGrid: 8 },
+  hard: { name: "Hard", minRatio: 0.58, minGrid: 9, maxGrid: 10 },
 };
 
 const state = {
@@ -49,6 +56,10 @@ const state = {
   discovered: new Set(["0,0"]),
   exit: { x: 0, y: 0 },
   lives: MAX_LIVES,
+  score: 0,
+  lastSavedScore: 0,
+  profileName: "Player",
+  highscores: [],
   completed: false,
   moves: 0,
   elapsed: 0,
@@ -159,7 +170,9 @@ function findSolutionPath() {
 }
 
 function getGridSize() {
-  return Math.min(9, 5 + (state.level - 1));
+  const mode = DIFFICULTY[state.difficulty];
+  const span = mode.maxGrid - mode.minGrid + 1;
+  return mode.minGrid + ((state.level - 1) % span);
 }
 
 function calcCellSize() {
@@ -188,10 +201,62 @@ function livesToText() {
   return `${full}${empty}`;
 }
 
+function loadProfile() {
+  const saved = localStorage.getItem(PROFILE_KEY);
+  if (saved && saved.trim()) {
+    state.profileName = saved.trim().slice(0, 18);
+  }
+}
+
+function renderProfile() {
+  profileText.textContent = `Profil: ${state.profileName}`;
+  profileInput.value = state.profileName;
+}
+
+function loadHighscores() {
+  try {
+    const raw = localStorage.getItem(HIGHSCORE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    state.highscores = Array.isArray(parsed) ? parsed : [];
+  } catch (_err) {
+    state.highscores = [];
+  }
+}
+
+function saveHighscores() {
+  localStorage.setItem(HIGHSCORE_KEY, JSON.stringify(state.highscores.slice(0, 10)));
+}
+
+function renderHighscore() {
+  const best = state.highscores[0];
+  if (!best) {
+    highscoreText.textContent = "Highscore: 0";
+    return;
+  }
+  highscoreText.textContent = `Highscore: ${best.score} (${best.name})`;
+}
+
+function pushHighscore(score) {
+  if (score <= state.lastSavedScore) return;
+  state.highscores.push({
+    name: state.profileName,
+    score,
+    mode: state.difficulty,
+    level: state.level,
+    at: Date.now(),
+  });
+  state.highscores.sort((a, b) => b.score - a.score);
+  state.highscores = state.highscores.slice(0, 10);
+  state.lastSavedScore = score;
+  saveHighscores();
+  renderHighscore();
+}
+
 function updateHUD() {
   levelText.textContent = `Level: ${state.level}`;
   gridText.textContent = `Grid: ${state.size}x${state.size}`;
   livesText.textContent = `Leben: ${livesToText()}`;
+  scoreText.textContent = `Score: ${state.score}`;
   movesText.textContent = `Moves: ${state.moves}`;
   timeText.textContent = `Zeit: ${state.elapsed}s`;
 }
@@ -259,6 +324,9 @@ function startLevel(resetLevel = false, withPreview = true) {
 }
 
 function gameOver() {
+  if (state.score > 0) {
+    pushHighscore(state.score);
+  }
   state.phase = "gameover";
   state.completed = false;
   clearInterval(state.timer);
@@ -357,7 +425,7 @@ function drawPreviewCountdown(now) {
   const fontSize = Math.max(18, state.cellSize * 0.72);
   const radius = Math.max(18, state.cellSize * 0.55);
   const cx = canvas.width / 2;
-  const cy = 36 + state.cellSize * 0.35;
+  const cy = 52 + state.cellSize * 0.4;
 
   ctx.beginPath();
   ctx.fillStyle = "rgba(255, 255, 255, 0.93)";
@@ -470,7 +538,7 @@ function drawRewardOverlay(now) {
   ctx.fillStyle = "rgba(255,255,255,0.4)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const w = Math.min(canvas.width - 40, 420);
-  const h = 120;
+  const h = 138;
   const x = (canvas.width - w) / 2;
   const y = (canvas.height - h) / 2 - 6;
   ctx.fillStyle = "rgba(255,255,255,0.95)";
@@ -482,7 +550,7 @@ function drawRewardOverlay(now) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `800 ${Math.max(20, state.cellSize * 0.74)}px "Open Sans", Calibri, Arial, sans-serif`;
-  ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 14);
+  ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 22);
   ctx.font = `600 ${Math.max(12, state.cellSize * 0.38)}px "Open Sans", Calibri, Arial, sans-serif`;
   ctx.fillText("Nice run!", canvas.width / 2, canvas.height / 2 + 20);
   ctx.restore();
@@ -513,9 +581,9 @@ function draw(now = performance.now()) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `700 ${Math.max(16, state.cellSize * 0.52)}px "Open Sans", Calibri, Arial, sans-serif`;
-    ctx.fillText("Tippe auf Start", canvas.width / 2, canvas.height / 2 - 4);
+    ctx.fillText("Tippe auf Start", canvas.width / 2, canvas.height / 2 - 22);
     ctx.font = `600 ${Math.max(12, state.cellSize * 0.34)}px "Open Sans", Calibri, Arial, sans-serif`;
-    ctx.fillText("und merke dir den Pfad", canvas.width / 2, canvas.height / 2 + 24);
+    ctx.fillText("und merke dir den Pfad", canvas.width / 2, canvas.height / 2 + 18);
     ctx.restore();
     return;
   }
@@ -595,8 +663,14 @@ function move(dirName) {
     state.phase = "done";
     clearInterval(state.timer);
     state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+    const levelScore = Math.max(
+      50,
+      state.size * 120 + state.lives * 60 - state.moves * 4 - state.elapsed * 2
+    );
+    state.score += levelScore;
     state.winBannerUntil = performance.now() + 1400;
-    statusText.textContent = `Level geschafft! ${state.moves} Moves in ${state.elapsed}s.`;
+    statusText.textContent = `Level geschafft! +${levelScore} Punkte.`;
+    pushHighscore(state.score);
     nextLevelBtn.disabled = false;
   }
 
@@ -732,6 +806,8 @@ function setDifficulty(mode) {
 
   if (state.hasStarted) {
     state.lives = MAX_LIVES;
+    state.score = 0;
+    state.lastSavedScore = 0;
     statusText.textContent = `${DIFFICULTY[mode].name}-Modus aktiv. Neues Spiel startet.`;
     startLevel(true, true);
   } else {
@@ -742,17 +818,23 @@ function setDifficulty(mode) {
 function setupInput() {
   window.addEventListener("keydown", onKeyDown, { passive: false });
 
-  document.querySelectorAll("[data-dir]").forEach((btn) => {
-    btn.addEventListener("click", () => move(btn.dataset.dir));
-  });
-
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => setDifficulty(button.dataset.mode));
+  });
+
+  saveProfileBtn.addEventListener("click", () => {
+    const value = profileInput.value.trim().slice(0, 18);
+    state.profileName = value || "Player";
+    localStorage.setItem(PROFILE_KEY, state.profileName);
+    renderProfile();
+    renderHighscore();
   });
 
   newGameBtn.addEventListener("click", () => {
     state.hasStarted = true;
     state.lives = MAX_LIVES;
+    state.score = 0;
+    state.lastSavedScore = 0;
     newGameBtn.textContent = "Neues Spiel";
     startLevel(true, true);
   });
@@ -764,10 +846,13 @@ function setupInput() {
 }
 
 function fitCanvas() {
-  const ratio = 1.5;
+  const isMobile = window.matchMedia("(max-width: 780px)").matches;
+  const ratio = isMobile ? 1.1 : 1.5;
   const rect = canvas.getBoundingClientRect();
   const displayWidth = Math.max(320, Math.floor(rect.width));
-  const displayHeight = Math.floor(displayWidth / ratio);
+  const targetHeight = Math.floor(displayWidth / ratio);
+  const mobileMin = Math.floor(window.innerHeight * 0.62);
+  const displayHeight = isMobile ? Math.max(targetHeight, mobileMin) : targetHeight;
 
   canvas.width = displayWidth;
   canvas.height = displayHeight;
@@ -786,6 +871,10 @@ window.addEventListener("resize", () => {
 
 setupInput();
 setupTouchControls();
+loadProfile();
+loadHighscores();
+renderProfile();
+renderHighscore();
 fitCanvas();
 statusText.textContent = "Druecke Start, um zu beginnen.";
 updateHUD();
