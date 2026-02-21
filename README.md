@@ -9,13 +9,15 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 - Nach der Vorschau: Fog-of-War + pulsierende Torch um den Spieler
 - Im Fog sind die Maze-Waende nicht sichtbar
 - Bewegte Route bleibt als Lichtpfad sichtbar
+- Der Vorschaupfad baut sich zuerst kurz animiert auf, danach Countdown: `3, 2, 1, GO`
 - Level-Groesse steigt von `5x5` bis `9x9`
 - Modi:
-  - `Easy`: kuerzere Pflichtpfade, Wandkontakt startet Level neu
-  - `Normal`: laengerer Pflichtpfad, Wandkontakt startet Level neu
-  - `Hard`: noch laengerer Pflichtpfad, Wandkontakt startet Level neu
+  - `Easy`: kuerzere Pflichtpfade
+  - `Normal`: laengerer Pflichtpfad
+  - `Hard`: noch laengerer Pflichtpfad
 - Pro Run: `3` Leben (`⚡⚡⚡`)
-- Bei Wandkontakt: Strike-Animation (Flash + Shake), sofortiger Restart am Startpunkt im Fog (ohne neue 5s-Preview)
+- Bei Wandkontakt: Strike-Animation (Flash + Shake), 1 Leben weg und weiterspielen von der aktuellen Position
+- Touch-Steuerung: auf dem Canvas sliden/swipen (iOS Safari kompatibel per Pointer-/Touch-Handling)
 - Bei Zielerreichung: Nebel verschwindet, ganzes Spielfeld wird wieder sichtbar
 - Bei Verbrauch des letzten Blitzes: `Game Over`
 

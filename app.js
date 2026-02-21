@@ -46,6 +46,7 @@ const state = {
   maze: [],
   player: { x: 0, y: 0 },
   trail: [{ x: 0, y: 0 }],
+  discovered: new Set(["0,0"]),
   exit: { x: 0, y: 0 },
   lives: MAX_LIVES,
   completed: false,
@@ -53,22 +54,30 @@ const state = {
   elapsed: 0,
   timer: null,
   previewTimer: null,
+  previewStartedAt: 0,
+  previewRevealMs: 700,
   startedAt: 0,
   phase: "preview",
   solutionPath: [],
+  winBannerUntil: 0,
   strike: {
     active: false,
     startedAt: 0,
-    duration: 600,
+    duration: 540,
     dir: "up",
     anchor: { x: 0, y: 0 },
   },
-  touch: {
+  drag: {
     active: false,
+    pointerId: null,
     x: 0,
     y: 0,
   },
 };
+
+function cellKey(x, y) {
+  return `${x},${y}`;
+}
 
 function createCell() {
   return {
@@ -200,25 +209,13 @@ function startTimer() {
 function startPlayPhase() {
   state.phase = "play";
   startTimer();
-  statusText.textContent = "Nebel aktiv. Fuehre die Torch zum Ziel.";
+  statusText.textContent = "Go! Nebel aktiv. Folge deinem Lichtpfad.";
 }
 
-function resetAttemptNoPreview(lifeLost = false) {
+function resetTraversalAtStart() {
   state.player = { x: 0, y: 0 };
   state.trail = [{ x: 0, y: 0 }];
-  state.moves = 0;
-  state.elapsed = 0;
-  state.completed = false;
-  state.phase = "play";
-
-  startTimer();
-
-  if (lifeLost) {
-    statusText.textContent = `Fehler. Neuer Versuch im Nebel. Leben: ${state.lives}/${MAX_LIVES}`;
-  } else {
-    statusText.textContent = "Neuer Versuch im Nebel.";
-  }
-  updateHUD();
+  state.discovered = new Set([cellKey(0, 0)]);
 }
 
 function startLevel(resetLevel = false, withPreview = true) {
@@ -229,28 +226,35 @@ function startLevel(resetLevel = false, withPreview = true) {
   state.exit = { x: state.size - 1, y: state.size - 1 };
   createLevelMaze();
 
-  state.player = { x: 0, y: 0 };
-  state.trail = [{ x: 0, y: 0 }];
+  resetTraversalAtStart();
   state.completed = false;
   state.moves = 0;
   state.elapsed = 0;
   state.strike.active = false;
+  state.winBannerUntil = 0;
 
   clearTimeout(state.previewTimer);
-
   nextLevelBtn.disabled = true;
 
   if (withPreview) {
     state.phase = "preview";
+    state.previewStartedAt = performance.now();
+    state.previewRevealMs = Math.min(
+      1000,
+      Math.max(200, Math.floor(state.solutionPath.length * 36))
+    );
     clearInterval(state.timer);
-    statusText.textContent = `Merke dir den Weg. Vorschau: ${PREVIEW_MS / 1000}s.`;
-    updateHUD();
+    statusText.textContent = "Merke dir den Weg... 3";
+
     state.previewTimer = setTimeout(() => {
       startPlayPhase();
     }, PREVIEW_MS);
   } else {
-    resetAttemptNoPreview(false);
+    state.phase = "play";
+    startTimer();
+    statusText.textContent = "Nebel aktiv. Folge deinem Lichtpfad.";
   }
+  updateHUD();
 }
 
 function gameOver() {
@@ -281,7 +285,8 @@ function onWallHit(dirName) {
     return;
   }
 
-  resetAttemptNoPreview(true);
+  statusText.textContent = `Strike! Weiter ab hier. Leben: ${state.lives}/${MAX_LIVES}`;
+  updateHUD();
 }
 
 function drawLine(x1, y1, x2, y2) {
@@ -291,44 +296,19 @@ function drawLine(x1, y1, x2, y2) {
   ctx.stroke();
 }
 
-function drawSolutionPath(offsetX, offsetY) {
-  if (!state.solutionPath.length) return;
+function drawPathSteps(offsetX, offsetY, steps) {
+  if (!steps.length) return;
 
+  ctx.save();
   ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
-  ctx.lineWidth = Math.max(4, Math.floor(state.cellSize * 0.22));
+  ctx.lineWidth = Math.max(3, Math.floor(state.cellSize * 0.16));
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.shadowColor = "rgba(255,255,255,0.85)";
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-
-  state.solutionPath.forEach((step, index) => {
-    const x = offsetX + step.x * state.cellSize + state.cellSize / 2;
-    const y = offsetY + step.y * state.cellSize + state.cellSize / 2;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-      return;
-    }
-    ctx.lineTo(x, y);
-  });
-
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-}
-
-function drawTrail(offsetX, offsetY) {
-  if (state.trail.length < 2) return;
-
-  ctx.save();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-  ctx.lineWidth = Math.max(3, state.cellSize * 0.16);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.shadowColor = "rgba(255,255,255,0.8)";
   ctx.shadowBlur = 8;
   ctx.beginPath();
 
-  state.trail.forEach((step, index) => {
+  steps.forEach((step, index) => {
     const x = offsetX + step.x * state.cellSize + state.cellSize / 2;
     const y = offsetY + step.y * state.cellSize + state.cellSize / 2;
     if (index === 0) {
@@ -361,18 +341,48 @@ function getGridCenter(offsetX, offsetY, cell) {
   };
 }
 
+function drawPreviewCountdown(now) {
+  if (state.phase !== "preview") return;
+
+  const elapsed = now - state.previewStartedAt;
+  const remaining = Math.max(0, PREVIEW_MS - elapsed);
+
+  let label = "3";
+  if (remaining <= 1000) label = "GO!";
+  else if (remaining <= 2000) label = "1";
+  else if (remaining <= 3000) label = "2";
+
+  ctx.save();
+  ctx.fillStyle = "rgba(29, 36, 120, 0.9)";
+  ctx.font = `${Math.max(18, state.cellSize * 0.7)}px 'Press Start 2P'`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, canvas.width / 2, 32 + state.cellSize * 0.35);
+  ctx.restore();
+
+  statusText.textContent = `Merke dir den Weg... ${label}`;
+}
+
 function drawFogWithTorch(offsetX, offsetY, now) {
   if (state.phase !== "play") return;
 
   const player = getGridCenter(offsetX, offsetY, state.player);
-  const pulse = Math.sin(now * 0.011) * 0.5 + 0.5;
-  const core = state.cellSize * (0.26 + pulse * 0.08);
-  const radius = state.cellSize * (0.62 + pulse * 0.12);
+  const pulse = Math.sin(now * 0.013) * 0.5 + 0.5;
+  const core = state.cellSize * (0.16 + pulse * 0.05);
+  const radius = state.cellSize * (0.38 + pulse * 0.09);
 
   ctx.save();
-  ctx.fillStyle = "rgba(8, 12, 30, 0.97)";
+  ctx.fillStyle = "rgba(8, 12, 30, 0.98)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.globalCompositeOperation = "destination-out";
+
+  state.discovered.forEach((key) => {
+    const [x, y] = key.split(",").map(Number);
+    const c = getGridCenter(offsetX, offsetY, { x, y });
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, state.cellSize * 0.56, 0, Math.PI * 2);
+    ctx.fill();
+  });
 
   const gradient = ctx.createRadialGradient(
     player.x,
@@ -383,7 +393,7 @@ function drawFogWithTorch(offsetX, offsetY, now) {
     radius
   );
   gradient.addColorStop(0, "rgba(0,0,0,1)");
-  gradient.addColorStop(0.65, "rgba(0,0,0,0.5)");
+  gradient.addColorStop(0.7, "rgba(0,0,0,0.45)");
   gradient.addColorStop(1, "rgba(0,0,0,0)");
 
   ctx.fillStyle = gradient;
@@ -395,9 +405,9 @@ function drawFogWithTorch(offsetX, offsetY, now) {
   ctx.save();
   ctx.fillStyle = "rgba(255,255,255,0.96)";
   ctx.shadowColor = "rgba(255,255,255,0.95)";
-  ctx.shadowBlur = 10 + pulse * 8;
+  ctx.shadowBlur = 7 + pulse * 5;
   ctx.beginPath();
-  ctx.arc(player.x, player.y, Math.max(3, core * 0.52), 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, Math.max(2, core * 0.7), 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -417,21 +427,21 @@ function drawStrikeOverlay(now, offsetX, offsetY) {
   };
 
   ctx.save();
-  ctx.fillStyle = `rgba(230, 57, 70, ${0.22 * alpha})`;
+  ctx.fillStyle = `rgba(230, 57, 70, ${0.24 * alpha})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = `rgba(255,255,255,${0.92 * alpha})`;
-  ctx.lineWidth = Math.max(2, state.cellSize * 0.12);
+  ctx.strokeStyle = `rgba(255,255,255,${0.95 * alpha})`;
+  ctx.lineWidth = Math.max(2, state.cellSize * 0.1);
   ctx.beginPath();
   ctx.moveTo(anchor.x, anchor.y);
-  ctx.lineTo((anchor.x + strike.x) * 0.5 + state.cellSize * 0.12, (anchor.y + strike.y) * 0.5);
+  ctx.lineTo((anchor.x + strike.x) * 0.5 + state.cellSize * 0.1, (anchor.y + strike.y) * 0.5);
   ctx.lineTo(strike.x, strike.y);
   ctx.stroke();
 
-  ctx.strokeStyle = `rgba(230,57,70,${0.95 * alpha})`;
+  ctx.strokeStyle = `rgba(230,57,70,${0.98 * alpha})`;
   ctx.lineWidth = Math.max(2, state.cellSize * 0.08);
   ctx.beginPath();
-  ctx.arc(strike.x, strike.y, state.cellSize * (0.2 + progress * 1.2), 0, Math.PI * 2);
+  ctx.arc(strike.x, strike.y, state.cellSize * (0.18 + progress * 1.1), 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 
@@ -440,13 +450,29 @@ function drawStrikeOverlay(now, offsetX, offsetY) {
   }
 }
 
+function drawRewardOverlay(now) {
+  if (now > state.winBannerUntil) return;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.76)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#1d2478";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `${Math.max(20, state.cellSize * 0.85)}px 'Press Start 2P'`;
+  ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 14);
+  ctx.font = `${Math.max(12, state.cellSize * 0.38)}px 'Press Start 2P'`;
+  ctx.fillText("Nice run!", canvas.width / 2, canvas.height / 2 + 20);
+  ctx.restore();
+}
+
 function draw(now = performance.now()) {
   let shakeX = 0;
   let shakeY = 0;
   if (state.strike.active) {
     const elapsed = now - state.strike.startedAt;
-    if (elapsed < 180) {
-      const intensity = (1 - elapsed / 180) * 5;
+    if (elapsed < 170) {
+      const intensity = (1 - elapsed / 170) * 4;
       shakeX = (Math.random() - 0.5) * intensity;
       shakeY = (Math.random() - 0.5) * intensity;
     }
@@ -459,32 +485,36 @@ function draw(now = performance.now()) {
   ctx.fillStyle = "#e9f9f1";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const showWalls = state.phase === "preview" || state.phase === "done" || state.phase === "gameover";
-  if (showWalls) {
-    ctx.strokeStyle = "#1d2478";
-    ctx.lineWidth = 3;
+  ctx.strokeStyle = "#1d2478";
+  ctx.lineWidth = 3;
+  for (let y = 0; y < state.size; y += 1) {
+    for (let x = 0; x < state.size; x += 1) {
+      const cell = state.maze[y][x];
+      const px = offsetX + x * state.cellSize;
+      const py = offsetY + y * state.cellSize;
 
-    for (let y = 0; y < state.size; y += 1) {
-      for (let x = 0; x < state.size; x += 1) {
-        const cell = state.maze[y][x];
-        const px = offsetX + x * state.cellSize;
-        const py = offsetY + y * state.cellSize;
-
-        if (cell.walls[0]) drawLine(px, py, px + state.cellSize, py);
-        if (cell.walls[1]) drawLine(px + state.cellSize, py, px + state.cellSize, py + state.cellSize);
-        if (cell.walls[2]) drawLine(px, py + state.cellSize, px + state.cellSize, py + state.cellSize);
-        if (cell.walls[3]) drawLine(px, py, px, py + state.cellSize);
-      }
+      if (cell.walls[0]) drawLine(px, py, px + state.cellSize, py);
+      if (cell.walls[1]) drawLine(px + state.cellSize, py, px + state.cellSize, py + state.cellSize);
+      if (cell.walls[2]) drawLine(px, py + state.cellSize, px + state.cellSize, py + state.cellSize);
+      if (cell.walls[3]) drawLine(px, py, px, py + state.cellSize);
     }
   }
 
   if (state.phase === "preview") {
-    drawSolutionPath(offsetX, offsetY);
+    const elapsed = Math.max(0, now - state.previewStartedAt);
+    const progress = Math.min(1, elapsed / state.previewRevealMs);
+    const steps = Math.max(1, Math.floor(state.solutionPath.length * progress));
+    drawPathSteps(offsetX, offsetY, state.solutionPath.slice(0, steps));
     drawMarker(offsetX, offsetY, 0, 0, "#1d2478");
     drawMarker(offsetX, offsetY, state.exit.x, state.exit.y, "#ffffff");
   }
 
+  if (state.phase === "play") {
+    drawPathSteps(offsetX, offsetY, state.trail);
+  }
+
   if (state.phase === "done" || state.phase === "gameover") {
+    drawPathSteps(offsetX, offsetY, state.trail);
     drawMarker(offsetX, offsetY, 0, 0, "#1d2478");
     drawMarker(offsetX, offsetY, state.exit.x, state.exit.y, "#ffffff");
   }
@@ -492,12 +522,13 @@ function draw(now = performance.now()) {
   const player = getGridCenter(offsetX, offsetY, state.player);
   ctx.fillStyle = "#1d2478";
   ctx.beginPath();
-  ctx.arc(player.x, player.y, Math.max(5, state.cellSize * 0.22), 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, Math.max(5, state.cellSize * 0.2), 0, Math.PI * 2);
   ctx.fill();
 
   drawFogWithTorch(offsetX, offsetY, now);
-  drawTrail(offsetX, offsetY);
+  drawPreviewCountdown(now);
   drawStrikeOverlay(now, offsetX, offsetY);
+  drawRewardOverlay(now);
 }
 
 function move(dirName) {
@@ -521,14 +552,16 @@ function move(dirName) {
   state.player.x = nx;
   state.player.y = ny;
   state.trail.push({ x: nx, y: ny });
+  state.discovered.add(cellKey(nx, ny));
   state.moves += 1;
 
-  if (state.player.x === state.exit.x && state.player.y === state.exit.y) {
+  if (nx === state.exit.x && ny === state.exit.y) {
     state.completed = true;
     state.phase = "done";
     clearInterval(state.timer);
     state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
-    statusText.textContent = `Ziel erreicht. Nebel aufgeloest. ${state.moves} Moves in ${state.elapsed}s.`;
+    state.winBannerUntil = performance.now() + 1400;
+    statusText.textContent = `Level geschafft! ${state.moves} Moves in ${state.elapsed}s.`;
     nextLevelBtn.disabled = false;
   }
 
@@ -536,7 +569,7 @@ function move(dirName) {
 }
 
 function handleSwipeDelta(dx, dy) {
-  const threshold = Math.max(18, state.cellSize * 0.35);
+  const threshold = Math.max(16, state.cellSize * 0.28);
   let consumed = false;
 
   while (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) {
@@ -564,37 +597,83 @@ function handleSwipeDelta(dx, dy) {
 function setupTouchControls() {
   canvas.style.touchAction = "none";
 
+  if (window.PointerEvent) {
+    canvas.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+        event.preventDefault();
+        state.drag.active = true;
+        state.drag.pointerId = event.pointerId;
+        state.drag.x = event.clientX;
+        state.drag.y = event.clientY;
+        if (canvas.setPointerCapture) {
+          try {
+            canvas.setPointerCapture(event.pointerId);
+          } catch (_err) {
+            // ignore capture errors on unsupported edge-cases
+          }
+        }
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener(
+      "pointermove",
+      (event) => {
+        if (!state.drag.active || event.pointerId !== state.drag.pointerId) return;
+        const dx = event.clientX - state.drag.x;
+        const dy = event.clientY - state.drag.y;
+        const result = handleSwipeDelta(dx, dy);
+        if (result.consumed) event.preventDefault();
+        state.drag.x = event.clientX - result.dx;
+        state.drag.y = event.clientY - result.dy;
+      },
+      { passive: false }
+    );
+
+    const stopPointer = (event) => {
+      if (event.pointerId !== state.drag.pointerId) return;
+      state.drag.active = false;
+      state.drag.pointerId = null;
+    };
+
+    canvas.addEventListener("pointerup", stopPointer, { passive: true });
+    canvas.addEventListener("pointercancel", stopPointer, { passive: true });
+    canvas.addEventListener("lostpointercapture", stopPointer, { passive: true });
+    return;
+  }
+
   canvas.addEventListener(
     "touchstart",
     (event) => {
       if (!event.touches.length) return;
+      event.preventDefault();
       const touch = event.touches[0];
-      state.touch.active = true;
-      state.touch.x = touch.clientX;
-      state.touch.y = touch.clientY;
+      state.drag.active = true;
+      state.drag.x = touch.clientX;
+      state.drag.y = touch.clientY;
     },
-    { passive: true }
+    { passive: false }
   );
 
   canvas.addEventListener(
     "touchmove",
     (event) => {
-      if (!state.touch.active || !event.touches.length) return;
+      if (!state.drag.active || !event.touches.length) return;
       const touch = event.touches[0];
-      const dx = touch.clientX - state.touch.x;
-      const dy = touch.clientY - state.touch.y;
+      const dx = touch.clientX - state.drag.x;
+      const dy = touch.clientY - state.drag.y;
       const result = handleSwipeDelta(dx, dy);
-      if (result.consumed) {
-        event.preventDefault();
-      }
-      state.touch.x = touch.clientX - result.dx;
-      state.touch.y = touch.clientY - result.dy;
+      event.preventDefault();
+      state.drag.x = touch.clientX - result.dx;
+      state.drag.y = touch.clientY - result.dy;
     },
     { passive: false }
   );
 
   const stopTouch = () => {
-    state.touch.active = false;
+    state.drag.active = false;
   };
 
   canvas.addEventListener("touchend", stopTouch, { passive: true });
