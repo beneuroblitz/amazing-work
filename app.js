@@ -46,9 +46,12 @@ const MODE_UNLOCK = {
 };
 
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
+  apiKey: "AIzaSyDPvISTnTBqb0--rE70NcoqW6QUPBQR4tA",
+  authDomain: "amazing-81108.firebaseapp.com",
+  projectId: "amazing-81108",
+  storageBucket: "amazing-81108.firebasestorage.app",
+  messagingSenderId: "491775955921",
+  appId: "1:491775955921:web:f47c19b3a8287c9db746f0",
 };
 
 const DIRS = {
