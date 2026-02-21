@@ -15,9 +15,9 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 - Bewegte Route bleibt als Lichtpfad sichtbar
 - Der Vorschaupfad baut sich in ca. `1-2s` animiert auf, danach Countdown: `3, 2, 1, GO`
 - Modi:
-  - `Easy`: Gridbereich `5x5` bis `6x6`
-  - `Medium`: Gridbereich `7x7` bis `8x8`
-  - `Hard`: Gridbereich `9x9` bis `10x10`
+  - `Easy`: Gridbereich `4x4` bis `5x5`
+  - `Medium`: Gridbereich `6x6` bis `7x7`
+  - `Hard`: Gridbereich `8x8` bis `9x9`
 - Freischaltung:
   - `Medium` ab Score `600`
   - `Hard` ab Score `1800`
@@ -26,9 +26,12 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 - Beruehrung der Aussenwaende fuehrt nicht zu Strafe
 - Beim Level-Clear erscheint ein kurzer Reward-Screen
 - Gewinn-Screen zeigt Zeit, Fehler und Punkte
+- Beim Level-Clear erscheint zuerst ein Ergebnis-Screen mit optionalem Sign-up (inkl. Google-Login)
+- `Game Over` nutzt denselben Ergebnis-Screen mit Gesamtpunktzahl + Button fuer neues Spiel
 - Touch-Steuerung: auf dem Canvas sliden/swipen (iOS Safari kompatibel per Pointer-/Touch-Handling)
 - Bei Zielerreichung: Nebel verschwindet, ganzes Spielfeld wird wieder sichtbar
 - Bei Verbrauch des letzten Blitzes: `Game Over`
+- Layout ist fuer Embed ohne Scrollen optimiert (Desktop + Mobile Hoch-/Querformat)
 
 ## Lokal starten
 

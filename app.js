@@ -17,9 +17,18 @@ const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const loginBtn = document.getElementById("loginBtn");
 const registerBtn = document.getElementById("registerBtn");
+const googleLoginBtn = document.getElementById("googleLoginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const authStatusText = document.getElementById("authStatusText");
 const leaderboardList = document.getElementById("leaderboardList");
+const resultOverlay = document.getElementById("resultOverlay");
+const resultTitle = document.getElementById("resultTitle");
+const resultSummary = document.getElementById("resultSummary");
+const resultAuthHint = document.getElementById("resultAuthHint");
+const resultPrimaryBtn = document.getElementById("resultPrimaryBtn");
+const resultSecondaryBtn = document.getElementById("resultSecondaryBtn");
+const resultRegisterBtn = document.getElementById("resultRegisterBtn");
+const resultGoogleBtn = document.getElementById("resultGoogleBtn");
 const nextLevelBtn = document.getElementById("nextLevelBtn");
 const newGameBtn = document.getElementById("newGameBtn");
 const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
@@ -61,9 +70,9 @@ const KEYMAP = {
 };
 
 const DIFFICULTY = {
-  easy: { name: "Easy", minRatio: 0.32, minGrid: 5, maxGrid: 6 },
-  medium: { name: "Medium", minRatio: 0.45, minGrid: 7, maxGrid: 8 },
-  hard: { name: "Hard", minRatio: 0.58, minGrid: 9, maxGrid: 10 },
+  easy: { name: "Easy", minRatio: 0.32, minGrid: 4, maxGrid: 5 },
+  medium: { name: "Medium", minRatio: 0.45, minGrid: 6, maxGrid: 7 },
+  hard: { name: "Hard", minRatio: 0.58, minGrid: 8, maxGrid: 9 },
 };
 
 const state = {
@@ -89,6 +98,7 @@ const state = {
   completed: false,
   moves: 0,
   levelErrors: 0,
+  runErrors: 0,
   lastLevelPoints: 0,
   lastLevelTime: 0,
   lastLevelErrors: 0,
@@ -102,6 +112,7 @@ const state = {
   solutionPath: [],
   winBannerUntil: 0,
   hasStarted: false,
+  overlayType: "",
   strike: {
     active: false,
     startedAt: 0,
@@ -369,6 +380,49 @@ function setAuthStatus(message) {
   authStatusText.textContent = message;
 }
 
+function showResultOverlay(type) {
+  state.overlayType = type;
+  resultOverlay.classList.remove("is-hidden");
+
+  if (type === "level-clear") {
+    resultTitle.textContent = "LEVEL CLEAR";
+    resultSummary.textContent = `Zeit: ${state.lastLevelTime}s | Fehler: ${state.lastLevelErrors} | Punkte: +${state.lastLevelPoints}`;
+    resultPrimaryBtn.textContent = "Naechstes Level";
+    resultSecondaryBtn.textContent = "Abbrechen";
+    resultPrimaryBtn.style.display = "";
+    resultSecondaryBtn.style.display = "";
+    const guestHint = "Melde dich an, um deinen Fortschritt online zu speichern.";
+    const userHint = "Fortschritt gespeichert. Du kannst direkt weiterspielen.";
+    resultAuthHint.textContent = state.user ? userHint : guestHint;
+    resultAuthHint.style.display = "";
+    const showAuth = !state.user;
+    resultRegisterBtn.style.display = showAuth ? "" : "none";
+    resultGoogleBtn.style.display = showAuth ? "" : "none";
+    return;
+  }
+
+  if (type === "game-over") {
+    resultTitle.textContent = "GAME OVER";
+    resultSummary.textContent = `Gesamtpunkte: ${state.score} | Fehler gesamt: ${state.runErrors}`;
+    resultPrimaryBtn.textContent = "Neues Spiel";
+    resultSecondaryBtn.textContent = "Schliessen";
+    resultPrimaryBtn.style.display = "";
+    resultSecondaryBtn.style.display = "";
+    resultAuthHint.textContent = state.user
+      ? "Dein Ergebnis wurde fuer das Leaderboard beruecksichtigt."
+      : "Melde dich an, um dich mit anderen zu vergleichen.";
+    resultAuthHint.style.display = "";
+    const showAuth = !state.user;
+    resultRegisterBtn.style.display = showAuth ? "" : "none";
+    resultGoogleBtn.style.display = showAuth ? "" : "none";
+  }
+}
+
+function hideResultOverlay() {
+  resultOverlay.classList.add("is-hidden");
+  state.overlayType = "";
+}
+
 function canUseCloud() {
   return Boolean(
     FIREBASE_CONFIG.apiKey &&
@@ -434,7 +488,83 @@ function initAuth() {
     } else {
       setAuthStatus("Gastmodus: Lokaler Highscore aktiv.");
     }
+    if (!resultOverlay.classList.contains("is-hidden") && state.overlayType) {
+      showResultOverlay(state.overlayType);
+    }
   });
+}
+
+async function registerWithEmail() {
+  if (!state.cloudEnabled) {
+    setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+    return;
+  }
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+  if (!email || password.length < 6) {
+    setAuthStatus("Bitte gueltige E-Mail und Passwort >= 6 Zeichen.");
+    return;
+  }
+  try {
+    state.cloudBusy = true;
+    await window.firebase.auth().createUserWithEmailAndPassword(email, password);
+    setAuthStatus("Registrierung erfolgreich.");
+  } catch (err) {
+    setAuthStatus(`Registrierung fehlgeschlagen: ${err.message}`);
+  } finally {
+    state.cloudBusy = false;
+  }
+}
+
+async function loginWithEmail() {
+  if (!state.cloudEnabled) {
+    setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+    return;
+  }
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+  if (!email || !password) {
+    setAuthStatus("Bitte E-Mail und Passwort eingeben.");
+    return;
+  }
+  try {
+    state.cloudBusy = true;
+    await window.firebase.auth().signInWithEmailAndPassword(email, password);
+    setAuthStatus("Login erfolgreich.");
+  } catch (err) {
+    setAuthStatus(`Login fehlgeschlagen: ${err.message}`);
+  } finally {
+    state.cloudBusy = false;
+  }
+}
+
+async function loginWithGoogle() {
+  if (!state.cloudEnabled) {
+    setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+    return;
+  }
+  try {
+    state.cloudBusy = true;
+    const provider = new window.firebase.auth.GoogleAuthProvider();
+    try {
+      await window.firebase.auth().signInWithPopup(provider);
+    } catch (err) {
+      if (
+        err?.code === "auth/popup-blocked" ||
+        err?.code === "auth/popup-closed-by-user" ||
+        err?.code === "auth/operation-not-supported-in-this-environment"
+      ) {
+        await window.firebase.auth().signInWithRedirect(provider);
+      } else {
+        throw err;
+      }
+    }
+    setAuthStatus("Google-Login erfolgreich.");
+  } catch (err) {
+    setAuthStatus(`Google-Login fehlgeschlagen: ${err.message}`);
+  } finally {
+    state.cloudBusy = false;
+  }
 }
 
 function updateHUD() {
@@ -481,6 +611,7 @@ function startLevel(resetLevel = false, withPreview = true) {
   state.completed = false;
   state.moves = 0;
   state.levelErrors = 0;
+  if (resetLevel) state.runErrors = 0;
   state.elapsed = 0;
   state.strike.active = false;
   state.winBannerUntil = 0;
@@ -521,6 +652,7 @@ function gameOver() {
   clearTimeout(state.previewTimer);
   nextLevelBtn.disabled = true;
   statusText.textContent = "Game Over. Starte ein neues Spiel.";
+  showResultOverlay("game-over");
   updateHUD();
 }
 
@@ -535,6 +667,7 @@ function onWallHit(dirName) {
   if (state.phase !== "play") return;
 
   state.levelErrors += 1;
+  state.runErrors += 1;
   triggerStrike(dirName);
   state.lives = Math.max(0, state.lives - 1);
 
@@ -831,7 +964,6 @@ function draw(now = performance.now()) {
   drawFogWithTorch(offsetX, offsetY, now);
   drawPreviewCountdown(now);
   drawStrikeOverlay(now, offsetX, offsetY);
-  drawRewardOverlay(now);
 }
 
 function move(dirName) {
@@ -849,7 +981,9 @@ function move(dirName) {
   const nx = state.player.x + dir.dx;
   const ny = state.player.y + dir.dy;
   if (nx < 0 || ny < 0 || nx >= state.size || ny >= state.size) {
-    onWallHit(dirName);
+    if (!isOutsideBoundaryAttempt(state.player.x, state.player.y, dirName)) {
+      onWallHit(dirName);
+    }
     return;
   }
 
@@ -879,6 +1013,7 @@ function move(dirName) {
     pushLeaderboard(state.score);
     submitCloudScore(state.score);
     nextLevelBtn.disabled = false;
+    showResultOverlay("level-clear");
   }
 
   updateHUD();
@@ -1011,6 +1146,7 @@ function setDifficulty(mode) {
   });
 
   if (state.hasStarted) {
+    hideResultOverlay();
     state.lives = MAX_LIVES;
     state.score = 0;
     state.lastSavedScore = 0;
@@ -1040,6 +1176,7 @@ function setupInput() {
   });
 
   newGameBtn.addEventListener("click", () => {
+    hideResultOverlay();
     state.hasStarted = true;
     state.lives = MAX_LIVES;
     state.score = 0;
@@ -1052,52 +1189,13 @@ function setupInput() {
 
   nextLevelBtn.addEventListener("click", () => {
     state.level += 1;
+    hideResultOverlay();
     startLevel(false, true);
   });
 
-  registerBtn.addEventListener("click", async () => {
-    if (!state.cloudEnabled) {
-      setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
-      return;
-    }
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-    if (!email || password.length < 6) {
-      setAuthStatus("Bitte gueltige E-Mail und Passwort >= 6 Zeichen.");
-      return;
-    }
-    try {
-      state.cloudBusy = true;
-      await window.firebase.auth().createUserWithEmailAndPassword(email, password);
-      setAuthStatus("Registrierung erfolgreich.");
-    } catch (err) {
-      setAuthStatus(`Registrierung fehlgeschlagen: ${err.message}`);
-    } finally {
-      state.cloudBusy = false;
-    }
-  });
-
-  loginBtn.addEventListener("click", async () => {
-    if (!state.cloudEnabled) {
-      setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
-      return;
-    }
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-    if (!email || !password) {
-      setAuthStatus("Bitte E-Mail und Passwort eingeben.");
-      return;
-    }
-    try {
-      state.cloudBusy = true;
-      await window.firebase.auth().signInWithEmailAndPassword(email, password);
-      setAuthStatus("Login erfolgreich.");
-    } catch (err) {
-      setAuthStatus(`Login fehlgeschlagen: ${err.message}`);
-    } finally {
-      state.cloudBusy = false;
-    }
-  });
+  registerBtn.addEventListener("click", registerWithEmail);
+  loginBtn.addEventListener("click", loginWithEmail);
+  googleLoginBtn.addEventListener("click", loginWithGoogle);
 
   logoutBtn.addEventListener("click", async () => {
     if (!state.cloudEnabled || !state.user) return;
@@ -1108,16 +1206,48 @@ function setupInput() {
       setAuthStatus(`Logout fehlgeschlagen: ${err.message}`);
     }
   });
+
+  resultPrimaryBtn.addEventListener("click", () => {
+    if (state.overlayType === "level-clear") {
+      hideResultOverlay();
+      state.level += 1;
+      startLevel(false, true);
+      return;
+    }
+    if (state.overlayType === "game-over") {
+      hideResultOverlay();
+      state.hasStarted = true;
+      state.lives = MAX_LIVES;
+      state.score = 0;
+      state.lastSavedScore = 0;
+      saveScore();
+      updateModeLocks();
+      newGameBtn.textContent = "Neues Spiel";
+      startLevel(true, true);
+    }
+  });
+
+  resultSecondaryBtn.addEventListener("click", () => {
+    hideResultOverlay();
+  });
+
+  resultRegisterBtn.addEventListener("click", registerWithEmail);
+  resultGoogleBtn.addEventListener("click", loginWithGoogle);
 }
 
 function fitCanvas() {
   const isMobile = window.matchMedia("(max-width: 780px)").matches;
-  const ratio = isMobile ? 1.1 : 1.5;
+  const ratio = isMobile ? 1.0 : 1.5;
   const rect = canvas.getBoundingClientRect();
+  const wrap = canvas.parentElement;
+  const availableH = wrap ? Math.max(220, Math.floor(wrap.clientHeight - 8)) : null;
   const displayWidth = Math.max(320, Math.floor(rect.width));
   const targetHeight = Math.floor(displayWidth / ratio);
-  const mobileMin = Math.floor(window.innerHeight * 0.62);
-  const displayHeight = isMobile ? Math.max(targetHeight, mobileMin) : targetHeight;
+  const mobileMin = Math.floor(window.innerHeight * 0.52);
+  let displayHeight = isMobile ? Math.max(targetHeight, mobileMin) : targetHeight;
+  if (availableH) {
+    displayHeight = Math.min(displayHeight, availableH);
+  }
 
   canvas.width = displayWidth;
   canvas.height = displayHeight;

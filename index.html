@@ -26,36 +26,40 @@
         </div>
       </section>
 
-      <section class="profile" aria-label="Profil und Highscore">
-        <div class="profile-row">
-          <label for="profileInput">Profil:</label>
-          <input id="profileInput" type="text" maxlength="18" placeholder="Dein Name" />
-          <button id="saveProfileBtn" class="btn">Speichern</button>
-        </div>
-        <p id="profileText">Profil: Player</p>
-        <p id="highscoreText">Highscore: 0</p>
-        <p id="unlockText">Freigeschaltet: Easy</p>
-      </section>
+      <details class="meta-panel">
+        <summary>Profil, Login, Leaderboard</summary>
+        <section class="profile" aria-label="Profil und Highscore">
+          <div class="profile-row">
+            <label for="profileInput">Profil:</label>
+            <input id="profileInput" type="text" maxlength="18" placeholder="Dein Name" />
+            <button id="saveProfileBtn" class="btn">Speichern</button>
+          </div>
+          <p id="profileText">Profil: Player</p>
+          <p id="highscoreText">Highscore: 0</p>
+          <p id="unlockText">Freigeschaltet: Easy</p>
+        </section>
 
-      <section class="auth" aria-label="Anmeldung">
-        <div class="auth-row">
-          <input id="emailInput" type="email" placeholder="E-Mail" />
-          <input id="passwordInput" type="password" placeholder="Passwort" />
-        </div>
-        <div class="auth-row">
-          <button id="loginBtn" class="btn">Login</button>
-          <button id="registerBtn" class="btn">Registrieren</button>
-          <button id="logoutBtn" class="btn" disabled>Logout</button>
-        </div>
-        <p id="authStatusText">Gastmodus: Lokaler Highscore aktiv.</p>
-      </section>
+        <section class="auth" aria-label="Anmeldung">
+          <div class="auth-row">
+            <input id="emailInput" type="email" placeholder="E-Mail" />
+            <input id="passwordInput" type="password" placeholder="Passwort" />
+          </div>
+          <div class="auth-row">
+            <button id="loginBtn" class="btn">Login</button>
+            <button id="registerBtn" class="btn">Registrieren</button>
+            <button id="googleLoginBtn" class="btn">Google</button>
+            <button id="logoutBtn" class="btn" disabled>Logout</button>
+          </div>
+          <p id="authStatusText">Gastmodus: Lokaler Highscore aktiv.</p>
+        </section>
 
-      <section class="leaderboard" aria-label="Leaderboard">
-        <p class="leaderboard-title">Leaderboard</p>
-        <ol id="leaderboardList">
-          <li>Keine Eintraege</li>
-        </ol>
-      </section>
+        <section class="leaderboard" aria-label="Leaderboard">
+          <p class="leaderboard-title">Leaderboard</p>
+          <ol id="leaderboardList">
+            <li>Keine Eintraege</li>
+          </ol>
+        </section>
+      </details>
 
       <section class="hud" aria-label="Spielstatus">
         <p id="statusText">Merke dir den Weg. 5 Sekunden Vorschau.</p>
@@ -82,6 +86,22 @@
         <p>Druecke Start. Mobil: auf dem Spielfeld sliden/swipen. Preview mit 3-2-1-Go, dann Fog. Bei Strike verlierst du 1 Blitz.</p>
       </footer>
     </main>
+
+    <section id="resultOverlay" class="result-overlay is-hidden" aria-live="polite">
+      <article class="result-card">
+        <h2 id="resultTitle">LEVEL CLEAR</h2>
+        <p id="resultSummary">Zeit: 0s | Fehler: 0 | Punkte: 0</p>
+        <p id="resultAuthHint">Melde dich an, um deinen Fortschritt online zu speichern.</p>
+        <div class="result-actions">
+          <button id="resultPrimaryBtn" class="btn">Naechstes Level</button>
+          <button id="resultSecondaryBtn" class="btn">Abbrechen</button>
+        </div>
+        <div class="result-auth-actions">
+          <button id="resultRegisterBtn" class="btn">Registrieren</button>
+          <button id="resultGoogleBtn" class="btn">Google Login</button>
+        </div>
+      </article>
+    </section>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
