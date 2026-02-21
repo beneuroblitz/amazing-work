@@ -12,6 +12,14 @@ const profileInput = document.getElementById("profileInput");
 const saveProfileBtn = document.getElementById("saveProfileBtn");
 const profileText = document.getElementById("profileText");
 const highscoreText = document.getElementById("highscoreText");
+const unlockText = document.getElementById("unlockText");
+const emailInput = document.getElementById("emailInput");
+const passwordInput = document.getElementById("passwordInput");
+const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const authStatusText = document.getElementById("authStatusText");
+const leaderboardList = document.getElementById("leaderboardList");
 const nextLevelBtn = document.getElementById("nextLevelBtn");
 const newGameBtn = document.getElementById("newGameBtn");
 const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
@@ -20,6 +28,19 @@ const PREVIEW_MS = 5000;
 const MAX_LIVES = 3;
 const PROFILE_KEY = "amazing_profile_name";
 const HIGHSCORE_KEY = "amazing_highscores_v1";
+const SCORE_KEY = "amazing_current_score";
+const LEADERBOARD_KEY = "amazing_local_leaderboard_v1";
+const MODE_UNLOCK = {
+  easy: 0,
+  medium: 600,
+  hard: 1800,
+};
+
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+};
 
 const DIRS = {
   up: { dx: 0, dy: -1, wall: 0, opposite: 2 },
@@ -41,7 +62,7 @@ const KEYMAP = {
 
 const DIFFICULTY = {
   easy: { name: "Easy", minRatio: 0.32, minGrid: 5, maxGrid: 6 },
-  normal: { name: "Normal", minRatio: 0.45, minGrid: 7, maxGrid: 8 },
+  medium: { name: "Medium", minRatio: 0.45, minGrid: 7, maxGrid: 8 },
   hard: { name: "Hard", minRatio: 0.58, minGrid: 9, maxGrid: 10 },
 };
 
@@ -60,8 +81,17 @@ const state = {
   lastSavedScore: 0,
   profileName: "Player",
   highscores: [],
+  leaderboard: [],
+  user: null,
+  authReady: false,
+  cloudEnabled: false,
+  cloudBusy: false,
   completed: false,
   moves: 0,
+  levelErrors: 0,
+  lastLevelPoints: 0,
+  lastLevelTime: 0,
+  lastLevelErrors: 0,
   elapsed: 0,
   timer: null,
   previewTimer: null,
@@ -84,6 +114,7 @@ const state = {
     pointerId: null,
     x: 0,
     y: 0,
+    lastStepAt: 0,
   },
 };
 
@@ -208,6 +239,16 @@ function loadProfile() {
   }
 }
 
+function loadScore() {
+  const raw = localStorage.getItem(SCORE_KEY);
+  const value = Number(raw);
+  state.score = Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+}
+
+function saveScore() {
+  localStorage.setItem(SCORE_KEY, String(state.score));
+}
+
 function renderProfile() {
   profileText.textContent = `Profil: ${state.profileName}`;
   profileInput.value = state.profileName;
@@ -236,6 +277,63 @@ function renderHighscore() {
   highscoreText.textContent = `Highscore: ${best.score} (${best.name})`;
 }
 
+function loadLocalLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    state.leaderboard = Array.isArray(parsed) ? parsed : [];
+  } catch (_err) {
+    state.leaderboard = [];
+  }
+}
+
+function saveLocalLeaderboard() {
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(state.leaderboard.slice(0, 20)));
+}
+
+function renderLeaderboard() {
+  const list = state.leaderboard.length
+    ? state.leaderboard
+    : [{ name: "Keine Eintraege", score: 0, mode: "-", level: "-" }];
+  leaderboardList.innerHTML = "";
+  list.slice(0, 10).forEach((row) => {
+    const li = document.createElement("li");
+    li.textContent = `${row.name} - ${row.score} (${row.mode} L${row.level})`;
+    leaderboardList.appendChild(li);
+  });
+}
+
+function getUnlockedModes() {
+  const bestHighscore = state.highscores[0]?.score || 0;
+  const unlockScore = Math.max(state.score, bestHighscore);
+  return Object.keys(MODE_UNLOCK).filter((mode) => unlockScore >= MODE_UNLOCK[mode]);
+}
+
+function updateModeLocks() {
+  const unlocked = new Set(getUnlockedModes());
+  const label = [...unlocked].map((m) => DIFFICULTY[m].name).join(", ");
+  unlockText.textContent = `Freigeschaltet: ${label || "Easy"}`;
+
+  modeButtons.forEach((button) => {
+    const mode = button.dataset.mode;
+    const isLocked = !unlocked.has(mode);
+    button.classList.toggle("is-locked", isLocked);
+    button.disabled = isLocked;
+    if (isLocked) {
+      button.title = `Ab ${MODE_UNLOCK[mode]} Score freigeschaltet`;
+    } else {
+      button.title = "";
+    }
+  });
+
+  if (!unlocked.has(state.difficulty)) {
+    state.difficulty = "easy";
+    modeButtons.forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.mode === "easy");
+    });
+  }
+}
+
 function pushHighscore(score) {
   if (score <= state.lastSavedScore) return;
   state.highscores.push({
@@ -250,6 +348,93 @@ function pushHighscore(score) {
   state.lastSavedScore = score;
   saveHighscores();
   renderHighscore();
+}
+
+function pushLeaderboard(score) {
+  const row = {
+    name: state.profileName,
+    score,
+    mode: DIFFICULTY[state.difficulty].name,
+    level: state.level,
+    at: Date.now(),
+  };
+  state.leaderboard.push(row);
+  state.leaderboard.sort((a, b) => b.score - a.score);
+  state.leaderboard = state.leaderboard.slice(0, 20);
+  saveLocalLeaderboard();
+  renderLeaderboard();
+}
+
+function setAuthStatus(message) {
+  authStatusText.textContent = message;
+}
+
+function canUseCloud() {
+  return Boolean(
+    FIREBASE_CONFIG.apiKey &&
+      FIREBASE_CONFIG.authDomain &&
+      FIREBASE_CONFIG.projectId &&
+      window.firebase
+  );
+}
+
+async function fetchCloudLeaderboard() {
+  if (!state.cloudEnabled || !window.firebase?.firestore) return;
+  try {
+    const snapshot = await window.firebase
+      .firestore()
+      .collection("mazeLeaderboard")
+      .orderBy("score", "desc")
+      .limit(20)
+      .get();
+
+    const rows = snapshot.docs.map((doc) => doc.data());
+    if (rows.length) {
+      state.leaderboard = rows;
+      renderLeaderboard();
+    }
+  } catch (_err) {
+    // keep local leaderboard fallback
+  }
+}
+
+async function submitCloudScore(score) {
+  if (!state.cloudEnabled || !state.user || !window.firebase?.firestore) return;
+  try {
+    await window.firebase.firestore().collection("mazeLeaderboard").add({
+      uid: state.user.uid,
+      name: state.profileName,
+      score,
+      mode: DIFFICULTY[state.difficulty].name,
+      level: state.level,
+      createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await fetchCloudLeaderboard();
+  } catch (_err) {
+    // keep playing with local storage even if cloud fails
+  }
+}
+
+function initAuth() {
+  if (!canUseCloud()) {
+    setAuthStatus("Gastmodus: Lokaler Highscore aktiv.");
+    return;
+  }
+
+  state.cloudEnabled = true;
+  const app = window.firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = app.auth();
+
+  auth.onAuthStateChanged(async (user) => {
+    state.user = user || null;
+    logoutBtn.disabled = !state.user;
+    if (state.user) {
+      setAuthStatus(`Angemeldet: ${state.user.email || "User"}`);
+      await fetchCloudLeaderboard();
+    } else {
+      setAuthStatus("Gastmodus: Lokaler Highscore aktiv.");
+    }
+  });
 }
 
 function updateHUD() {
@@ -295,6 +480,7 @@ function startLevel(resetLevel = false, withPreview = true) {
   resetTraversalAtStart();
   state.completed = false;
   state.moves = 0;
+  state.levelErrors = 0;
   state.elapsed = 0;
   state.strike.active = false;
   state.winBannerUntil = 0;
@@ -326,6 +512,8 @@ function startLevel(resetLevel = false, withPreview = true) {
 function gameOver() {
   if (state.score > 0) {
     pushHighscore(state.score);
+    pushLeaderboard(state.score);
+    submitCloudScore(state.score);
   }
   state.phase = "gameover";
   state.completed = false;
@@ -346,6 +534,7 @@ function triggerStrike(dirName) {
 function onWallHit(dirName) {
   if (state.phase !== "play") return;
 
+  state.levelErrors += 1;
   triggerStrike(dirName);
   state.lives = Math.max(0, state.lives - 1);
 
@@ -356,6 +545,15 @@ function onWallHit(dirName) {
 
   statusText.textContent = `Strike! Weiter ab hier. Leben: ${state.lives}/${MAX_LIVES}`;
   updateHUD();
+}
+
+function isOutsideBoundaryAttempt(x, y, dirName) {
+  return (
+    (dirName === "up" && y === 0) ||
+    (dirName === "down" && y === state.size - 1) ||
+    (dirName === "left" && x === 0) ||
+    (dirName === "right" && x === state.size - 1)
+  );
 }
 
 function drawLine(x1, y1, x2, y2) {
@@ -532,13 +730,13 @@ function drawStrikeOverlay(now, offsetX, offsetY) {
 }
 
 function drawRewardOverlay(now) {
-  if (state.phase !== "done" || now > state.winBannerUntil) return;
+  if (state.phase !== "done") return;
 
   ctx.save();
   ctx.fillStyle = "rgba(255,255,255,0.4)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const w = Math.min(canvas.width - 40, 420);
-  const h = 138;
+  const h = 168;
   const x = (canvas.width - w) / 2;
   const y = (canvas.height - h) / 2 - 6;
   ctx.fillStyle = "rgba(255,255,255,0.95)";
@@ -550,9 +748,11 @@ function drawRewardOverlay(now) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `800 ${Math.max(20, state.cellSize * 0.74)}px "Open Sans", Calibri, Arial, sans-serif`;
-  ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 22);
+  ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 42);
   ctx.font = `600 ${Math.max(12, state.cellSize * 0.38)}px "Open Sans", Calibri, Arial, sans-serif`;
-  ctx.fillText("Nice run!", canvas.width / 2, canvas.height / 2 + 20);
+  ctx.fillText(`Zeit: ${state.lastLevelTime}s`, canvas.width / 2, canvas.height / 2 - 6);
+  ctx.fillText(`Fehler: ${state.lastLevelErrors}`, canvas.width / 2, canvas.height / 2 + 20);
+  ctx.fillText(`Punkte: +${state.lastLevelPoints}`, canvas.width / 2, canvas.height / 2 + 46);
   ctx.restore();
 }
 
@@ -641,6 +841,7 @@ function move(dirName) {
   const cell = state.maze[state.player.y][state.player.x];
 
   if (cell.walls[dir.wall]) {
+    if (isOutsideBoundaryAttempt(state.player.x, state.player.y, dirName)) return;
     onWallHit(dirName);
     return;
   }
@@ -667,10 +868,16 @@ function move(dirName) {
       50,
       state.size * 120 + state.lives * 60 - state.moves * 4 - state.elapsed * 2
     );
+    state.lastLevelTime = state.elapsed;
+    state.lastLevelErrors = state.levelErrors;
+    state.lastLevelPoints = levelScore;
     state.score += levelScore;
-    state.winBannerUntil = performance.now() + 1400;
+    saveScore();
+    updateModeLocks();
     statusText.textContent = `Level geschafft! +${levelScore} Punkte.`;
     pushHighscore(state.score);
+    pushLeaderboard(state.score);
+    submitCloudScore(state.score);
     nextLevelBtn.disabled = false;
   }
 
@@ -678,29 +885,22 @@ function move(dirName) {
 }
 
 function handleSwipeDelta(dx, dy) {
-  const threshold = Math.max(28, state.cellSize * 0.52);
-  let consumed = false;
-
-  while (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) {
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      if (dx > 0) {
-        move("right");
-        dx -= threshold;
-      } else {
-        move("left");
-        dx += threshold;
-      }
-    } else if (dy > 0) {
-      move("down");
-      dy -= threshold;
-    } else {
-      move("up");
-      dy += threshold;
-    }
-    consumed = true;
+  const now = performance.now();
+  const threshold = Math.max(40, state.cellSize * 0.68);
+  if (now - state.drag.lastStepAt < 140) {
+    return { consumed: false, dx, dy };
+  }
+  if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) {
+    return { consumed: false, dx, dy };
   }
 
-  return { consumed, dx, dy };
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    move(dx > 0 ? "right" : "left");
+  } else {
+    move(dy > 0 ? "down" : "up");
+  }
+  state.drag.lastStepAt = now;
+  return { consumed: true, dx: 0, dy: 0 };
 }
 
 function setupTouchControls() {
@@ -798,6 +998,12 @@ function onKeyDown(event) {
 
 function setDifficulty(mode) {
   if (!DIFFICULTY[mode]) return;
+  const bestHighscore = state.highscores[0]?.score || 0;
+  const unlockScore = Math.max(state.score, bestHighscore);
+  if (unlockScore < MODE_UNLOCK[mode]) {
+    statusText.textContent = `${DIFFICULTY[mode].name} ab ${MODE_UNLOCK[mode]} Score.`;
+    return;
+  }
   state.difficulty = mode;
 
   modeButtons.forEach((button) => {
@@ -808,6 +1014,8 @@ function setDifficulty(mode) {
     state.lives = MAX_LIVES;
     state.score = 0;
     state.lastSavedScore = 0;
+    saveScore();
+    updateModeLocks();
     statusText.textContent = `${DIFFICULTY[mode].name}-Modus aktiv. Neues Spiel startet.`;
     startLevel(true, true);
   } else {
@@ -828,6 +1036,7 @@ function setupInput() {
     localStorage.setItem(PROFILE_KEY, state.profileName);
     renderProfile();
     renderHighscore();
+    renderLeaderboard();
   });
 
   newGameBtn.addEventListener("click", () => {
@@ -835,6 +1044,8 @@ function setupInput() {
     state.lives = MAX_LIVES;
     state.score = 0;
     state.lastSavedScore = 0;
+    saveScore();
+    updateModeLocks();
     newGameBtn.textContent = "Neues Spiel";
     startLevel(true, true);
   });
@@ -842,6 +1053,60 @@ function setupInput() {
   nextLevelBtn.addEventListener("click", () => {
     state.level += 1;
     startLevel(false, true);
+  });
+
+  registerBtn.addEventListener("click", async () => {
+    if (!state.cloudEnabled) {
+      setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+      return;
+    }
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!email || password.length < 6) {
+      setAuthStatus("Bitte gueltige E-Mail und Passwort >= 6 Zeichen.");
+      return;
+    }
+    try {
+      state.cloudBusy = true;
+      await window.firebase.auth().createUserWithEmailAndPassword(email, password);
+      setAuthStatus("Registrierung erfolgreich.");
+    } catch (err) {
+      setAuthStatus(`Registrierung fehlgeschlagen: ${err.message}`);
+    } finally {
+      state.cloudBusy = false;
+    }
+  });
+
+  loginBtn.addEventListener("click", async () => {
+    if (!state.cloudEnabled) {
+      setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+      return;
+    }
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!email || !password) {
+      setAuthStatus("Bitte E-Mail und Passwort eingeben.");
+      return;
+    }
+    try {
+      state.cloudBusy = true;
+      await window.firebase.auth().signInWithEmailAndPassword(email, password);
+      setAuthStatus("Login erfolgreich.");
+    } catch (err) {
+      setAuthStatus(`Login fehlgeschlagen: ${err.message}`);
+    } finally {
+      state.cloudBusy = false;
+    }
+  });
+
+  logoutBtn.addEventListener("click", async () => {
+    if (!state.cloudEnabled || !state.user) return;
+    try {
+      await window.firebase.auth().signOut();
+      setAuthStatus("Abgemeldet. Gastmodus aktiv.");
+    } catch (err) {
+      setAuthStatus(`Logout fehlgeschlagen: ${err.message}`);
+    }
   });
 }
 
@@ -872,9 +1137,14 @@ window.addEventListener("resize", () => {
 setupInput();
 setupTouchControls();
 loadProfile();
+loadScore();
 loadHighscores();
+loadLocalLeaderboard();
 renderProfile();
 renderHighscore();
+updateModeLocks();
+renderLeaderboard();
+initAuth();
 fitCanvas();
 statusText.textContent = "Druecke Start, um zu beginnen.";
 updateHUD();

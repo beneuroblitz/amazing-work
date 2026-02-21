@@ -108,6 +108,47 @@ body {
   font-size: 0.53rem;
 }
 
+.auth,
+.leaderboard {
+  margin-bottom: 12px;
+}
+
+.auth-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.auth input {
+  border: 1px solid rgba(29, 36, 120, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--navy);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.56rem;
+  width: min(220px, 100%);
+}
+
+.auth p,
+.leaderboard-title {
+  margin: 0;
+  color: var(--navy-soft);
+  font-size: 0.53rem;
+}
+
+.leaderboard ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--navy);
+  font-size: 0.54rem;
+}
+
+.leaderboard li {
+  margin-bottom: 3px;
+}
+
 .hud {
   display: flex;
   flex-wrap: wrap;
@@ -172,6 +213,10 @@ canvas {
 .mode-btn.is-active {
   background: var(--navy);
   color: var(--white);
+}
+
+.mode-btn.is-locked {
+  opacity: 0.45;
 }
 
 .btn:disabled {

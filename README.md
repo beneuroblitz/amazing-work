@@ -9,17 +9,23 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 - Spiel startet erst nach Klick auf `Start`
 - Profilname kann gespeichert werden
 - Highscore wird lokal im Browser gespeichert (`localStorage`)
+- Optionales Login (Firebase) fuer Cloud-Leaderboard
 - Nach der Vorschau: Fog-of-War + pulsierende Torch um den Spieler
 - Im Fog sind die Maze-Waende nicht sichtbar
 - Bewegte Route bleibt als Lichtpfad sichtbar
 - Der Vorschaupfad baut sich in ca. `1-2s` animiert auf, danach Countdown: `3, 2, 1, GO`
 - Modi:
   - `Easy`: Gridbereich `5x5` bis `6x6`
-  - `Normal`: Gridbereich `7x7` bis `8x8`
+  - `Medium`: Gridbereich `7x7` bis `8x8`
   - `Hard`: Gridbereich `9x9` bis `10x10`
+- Freischaltung:
+  - `Medium` ab Score `600`
+  - `Hard` ab Score `1800`
 - Pro Run: `3` Leben (`⚡⚡⚡`)
 - Bei Wandkontakt: Strike-Animation (Flash + Shake), 1 Leben weg und weiterspielen an der Fehlerposition
+- Beruehrung der Aussenwaende fuehrt nicht zu Strafe
 - Beim Level-Clear erscheint ein kurzer Reward-Screen
+- Gewinn-Screen zeigt Zeit, Fehler und Punkte
 - Touch-Steuerung: auf dem Canvas sliden/swipen (iOS Safari kompatibel per Pointer-/Touch-Handling)
 - Bei Zielerreichung: Nebel verschwindet, ganzes Spielfeld wird wieder sichtbar
 - Bei Verbrauch des letzten Blitzes: `Game Over`
@@ -31,6 +37,15 @@ python3 -m http.server 8080
 ```
 
 Dann im Browser: `http://localhost:8080`
+
+## Firebase Login/Leaderboard aktivieren
+
+In `/Users/ben/Documents/New project/app.js` die Werte in `FIREBASE_CONFIG` eintragen:
+- `apiKey`
+- `authDomain`
+- `projectId`
+
+Dann funktionieren Registrierung/Login/Logout und das Cloud-Leaderboard.
 
 ## Deploy fuer Squarespace (empfohlen: GitHub Pages oder Firebase)
 
