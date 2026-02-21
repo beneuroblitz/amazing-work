@@ -560,22 +560,35 @@ async function loginWithGoogle() {
   try {
     state.cloudBusy = true;
     const provider = new window.firebase.auth.GoogleAuthProvider();
-    try {
-      await window.firebase.auth().signInWithPopup(provider);
-    } catch (err) {
-      if (
-        err?.code === "auth/popup-blocked" ||
-        err?.code === "auth/popup-closed-by-user" ||
-        err?.code === "auth/operation-not-supported-in-this-environment"
-      ) {
-        await window.firebase.auth().signInWithRedirect(provider);
-      } else {
-        throw err;
+    const inIframe = (() => {
+      try {
+        return window.self !== window.top;
+      } catch (_err) {
+        return true;
       }
+    })();
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (inIframe || isMobile) {
+      await window.firebase.auth().signInWithRedirect(provider);
+      setAuthStatus("Google-Login gestartet (Redirect)...");
+      return;
     }
+
+    await window.firebase.auth().signInWithPopup(provider);
     setAuthStatus("Google-Login erfolgreich.");
   } catch (err) {
-    setAuthStatus(`Google-Login fehlgeschlagen: ${err.message}`);
+    if (err?.code === "auth/unauthorized-domain") {
+      setAuthStatus(
+        `Google-Login blockiert: Domain '${location.hostname}' in Firebase Auth > Authorized domains eintragen.`
+      );
+      return;
+    }
+    if (err?.code === "auth/popup-blocked") {
+      setAuthStatus("Popup blockiert. Bitte Popups erlauben oder Redirect-Login nutzen.");
+      return;
+    }
+    setAuthStatus(`Google-Login fehlgeschlagen: ${err?.message || "Unbekannter Fehler"}`);
   } finally {
     state.cloudBusy = false;
   }
@@ -1139,6 +1152,14 @@ function setupTouchControls() {
 }
 
 function onKeyDown(event) {
+  const target = event.target;
+  const isTypingTarget =
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target?.isContentEditable;
+  if (isTypingTarget) return;
+
   const dir = KEYMAP[event.code];
   if (!dir) return;
   event.preventDefault();
