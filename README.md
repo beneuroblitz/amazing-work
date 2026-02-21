@@ -7,13 +7,17 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 
 - Vorschauzeit ist immer fix: `5 Sekunden`
 - Nach der Vorschau: Fog-of-War + pulsierende Torch um den Spieler
+- Im Fog sind die Maze-Waende nicht sichtbar
+- Bewegte Route bleibt als Lichtpfad sichtbar
 - Level-Groesse steigt von `5x5` bis `9x9`
 - Modi:
   - `Easy`: kuerzere Pflichtpfade, Wandkontakt startet Level neu
   - `Normal`: laengerer Pflichtpfad, Wandkontakt startet Level neu
   - `Hard`: noch laengerer Pflichtpfad, Wandkontakt startet Level neu
-- Bei Wandkontakt: Strike-Animation (Flash + Shake), dann Level-Neustart
+- Pro Run: `3` Leben (`⚡⚡⚡`)
+- Bei Wandkontakt: Strike-Animation (Flash + Shake), sofortiger Restart am Startpunkt im Fog (ohne neue 5s-Preview)
 - Bei Zielerreichung: Nebel verschwindet, ganzes Spielfeld wird wieder sichtbar
+- Bei Verbrauch des letzten Blitzes: `Game Over`
 
 ## Lokal starten
 
