@@ -63,6 +63,11 @@ const state = {
     dir: "up",
     anchor: { x: 0, y: 0 },
   },
+  touch: {
+    active: false,
+    x: 0,
+    y: 0,
+  },
 };
 
 function createCell() {
@@ -530,6 +535,72 @@ function move(dirName) {
   updateHUD();
 }
 
+function handleSwipeDelta(dx, dy) {
+  const threshold = Math.max(18, state.cellSize * 0.35);
+  let consumed = false;
+
+  while (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) {
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx > 0) {
+        move("right");
+        dx -= threshold;
+      } else {
+        move("left");
+        dx += threshold;
+      }
+    } else if (dy > 0) {
+      move("down");
+      dy -= threshold;
+    } else {
+      move("up");
+      dy += threshold;
+    }
+    consumed = true;
+  }
+
+  return { consumed, dx, dy };
+}
+
+function setupTouchControls() {
+  canvas.style.touchAction = "none";
+
+  canvas.addEventListener(
+    "touchstart",
+    (event) => {
+      if (!event.touches.length) return;
+      const touch = event.touches[0];
+      state.touch.active = true;
+      state.touch.x = touch.clientX;
+      state.touch.y = touch.clientY;
+    },
+    { passive: true }
+  );
+
+  canvas.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!state.touch.active || !event.touches.length) return;
+      const touch = event.touches[0];
+      const dx = touch.clientX - state.touch.x;
+      const dy = touch.clientY - state.touch.y;
+      const result = handleSwipeDelta(dx, dy);
+      if (result.consumed) {
+        event.preventDefault();
+      }
+      state.touch.x = touch.clientX - result.dx;
+      state.touch.y = touch.clientY - result.dy;
+    },
+    { passive: false }
+  );
+
+  const stopTouch = () => {
+    state.touch.active = false;
+  };
+
+  canvas.addEventListener("touchend", stopTouch, { passive: true });
+  canvas.addEventListener("touchcancel", stopTouch, { passive: true });
+}
+
 function onKeyDown(event) {
   const dir = KEYMAP[event.code];
   if (!dir) return;
@@ -594,6 +665,7 @@ window.addEventListener("resize", () => {
 });
 
 setupInput();
+setupTouchControls();
 fitCanvas();
 startLevel(true, true);
 requestAnimationFrame(renderLoop);
