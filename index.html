@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amazing - Memory Maze</title>
+    <meta
+      name="description"
+      content="Amazing ist ein Memory-Maze im Zip-Style fuer Web und Mobile."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" role="main">
+      <header class="topbar">
+        <h1 class="title">AMAZING</h1>
+        <p class="subtitle">Memory Maze</p>
+      </header>
+
+      <section class="difficulty" aria-label="Schwierigkeit">
+        <span class="difficulty-label">Mode:</span>
+        <div class="difficulty-buttons">
+          <button class="btn mode-btn is-active" data-mode="easy">Easy</button>
+          <button class="btn mode-btn" data-mode="normal">Normal</button>
+          <button class="btn mode-btn" data-mode="hard">Hard</button>
+        </div>
+      </section>
+
+      <section class="hud" aria-label="Spielstatus">
+        <p id="statusText">Merke dir den Weg. 5 Sekunden Vorschau.</p>
+        <div class="stats">
+          <span id="levelText">Level: 1</span>
+          <span id="gridText">Grid: 5x5</span>
+          <span id="movesText">Moves: 0</span>
+          <span id="timeText">Zeit: 0s</span>
+        </div>
+      </section>
+
+      <section class="canvas-wrap">
+        <canvas id="mazeCanvas" width="960" height="640" aria-label="Maze Spielfeld"></canvas>
+      </section>
+
+      <section class="controls" aria-label="Steuerung">
+        <button id="newGameBtn" class="btn">Neues Spiel</button>
+        <button id="nextLevelBtn" class="btn" disabled>Naechstes Level</button>
+      </section>
+
+      <section class="mobile-controls" aria-label="Touch-Steuerung">
+        <button data-dir="up" class="pad">▲</button>
+        <div class="row">
+          <button data-dir="left" class="pad">◀</button>
+          <button data-dir="down" class="pad">▼</button>
+          <button data-dir="right" class="pad">▶</button>
+        </div>
+      </section>
+
+      <footer class="hint">
+        <p>Preview 5s, dann Nebel. Fuehre die pulsierende Torch zum Ziel. Wandkontakt loest Strike + Neustart aus.</p>
+      </footer>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
