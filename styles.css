@@ -19,7 +19,7 @@ body {
 }
 
 body {
-  font-family: "Press Start 2P", cursive;
+  font-family: "Open Sans", Calibri, Arial, sans-serif;
   color: var(--navy);
   background:
     radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.42), transparent 38%),
@@ -48,6 +48,7 @@ body {
   color: var(--navy);
   font-size: clamp(1.1rem, 2.5vw, 1.8rem);
   letter-spacing: 0.06em;
+  font-weight: 800;
 }
 
 .subtitle {

@@ -55,11 +55,12 @@ const state = {
   timer: null,
   previewTimer: null,
   previewStartedAt: 0,
-  previewRevealMs: 700,
+  previewRevealMs: 1600,
   startedAt: 0,
-  phase: "preview",
+  phase: "idle",
   solutionPath: [],
   winBannerUntil: 0,
+  hasStarted: false,
   strike: {
     active: false,
     startedAt: 0,
@@ -240,8 +241,8 @@ function startLevel(resetLevel = false, withPreview = true) {
     state.phase = "preview";
     state.previewStartedAt = performance.now();
     state.previewRevealMs = Math.min(
-      1000,
-      Math.max(200, Math.floor(state.solutionPath.length * 36))
+      2000,
+      Math.max(1200, Math.floor(state.solutionPath.length * 75))
     );
     clearInterval(state.timer);
     statusText.textContent = "Merke dir den Weg... 3";
@@ -353,11 +354,24 @@ function drawPreviewCountdown(now) {
   else if (remaining <= 3000) label = "2";
 
   ctx.save();
-  ctx.fillStyle = "rgba(29, 36, 120, 0.9)";
-  ctx.font = `${Math.max(18, state.cellSize * 0.7)}px 'Press Start 2P'`;
+  const fontSize = Math.max(18, state.cellSize * 0.72);
+  const radius = Math.max(18, state.cellSize * 0.55);
+  const cx = canvas.width / 2;
+  const cy = 36 + state.cellSize * 0.35;
+
+  ctx.beginPath();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.93)";
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#111111";
+  ctx.stroke();
+
+  ctx.fillStyle = "#000000";
+  ctx.font = `700 ${fontSize}px "Open Sans", Calibri, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, canvas.width / 2, 32 + state.cellSize * 0.35);
+  ctx.fillText(label, cx, cy + 1);
   ctx.restore();
 
   statusText.textContent = `Merke dir den Weg... ${label}`;
@@ -378,10 +392,9 @@ function drawFogWithTorch(offsetX, offsetY, now) {
 
   state.discovered.forEach((key) => {
     const [x, y] = key.split(",").map(Number);
-    const c = getGridCenter(offsetX, offsetY, { x, y });
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, state.cellSize * 0.56, 0, Math.PI * 2);
-    ctx.fill();
+    const px = offsetX + x * state.cellSize + 1;
+    const py = offsetY + y * state.cellSize + 1;
+    ctx.fillRect(px, py, state.cellSize - 2, state.cellSize - 2);
   });
 
   const gradient = ctx.createRadialGradient(
@@ -451,17 +464,26 @@ function drawStrikeOverlay(now, offsetX, offsetY) {
 }
 
 function drawRewardOverlay(now) {
-  if (now > state.winBannerUntil) return;
+  if (state.phase !== "done" || now > state.winBannerUntil) return;
 
   ctx.save();
-  ctx.fillStyle = "rgba(255,255,255,0.76)";
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const w = Math.min(canvas.width - 40, 420);
+  const h = 120;
+  const x = (canvas.width - w) / 2;
+  const y = (canvas.height - h) / 2 - 6;
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.strokeStyle = "#1d2478";
+  ctx.lineWidth = 2;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
   ctx.fillStyle = "#1d2478";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `${Math.max(20, state.cellSize * 0.85)}px 'Press Start 2P'`;
+  ctx.font = `800 ${Math.max(20, state.cellSize * 0.74)}px "Open Sans", Calibri, Arial, sans-serif`;
   ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 14);
-  ctx.font = `${Math.max(12, state.cellSize * 0.38)}px 'Press Start 2P'`;
+  ctx.font = `600 ${Math.max(12, state.cellSize * 0.38)}px "Open Sans", Calibri, Arial, sans-serif`;
   ctx.fillText("Nice run!", canvas.width / 2, canvas.height / 2 + 20);
   ctx.restore();
 }
@@ -484,6 +506,19 @@ function draw(now = performance.now()) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#e9f9f1";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!state.hasStarted || !state.maze.length) {
+    ctx.save();
+    ctx.fillStyle = "#1d2478";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${Math.max(16, state.cellSize * 0.52)}px "Open Sans", Calibri, Arial, sans-serif`;
+    ctx.fillText("Tippe auf Start", canvas.width / 2, canvas.height / 2 - 4);
+    ctx.font = `600 ${Math.max(12, state.cellSize * 0.34)}px "Open Sans", Calibri, Arial, sans-serif`;
+    ctx.fillText("und merke dir den Pfad", canvas.width / 2, canvas.height / 2 + 24);
+    ctx.restore();
+    return;
+  }
 
   ctx.strokeStyle = "#1d2478";
   ctx.lineWidth = 3;
@@ -569,7 +604,7 @@ function move(dirName) {
 }
 
 function handleSwipeDelta(dx, dy) {
-  const threshold = Math.max(16, state.cellSize * 0.28);
+  const threshold = Math.max(28, state.cellSize * 0.52);
   let consumed = false;
 
   while (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) {
@@ -695,9 +730,13 @@ function setDifficulty(mode) {
     button.classList.toggle("is-active", button.dataset.mode === mode);
   });
 
-  state.lives = MAX_LIVES;
-  statusText.textContent = `${DIFFICULTY[mode].name}-Modus aktiv. Neues Spiel startet.`;
-  startLevel(true, true);
+  if (state.hasStarted) {
+    state.lives = MAX_LIVES;
+    statusText.textContent = `${DIFFICULTY[mode].name}-Modus aktiv. Neues Spiel startet.`;
+    startLevel(true, true);
+  } else {
+    statusText.textContent = `${DIFFICULTY[mode].name}-Modus aktiv. Druecke Start.`;
+  }
 }
 
 function setupInput() {
@@ -712,7 +751,9 @@ function setupInput() {
   });
 
   newGameBtn.addEventListener("click", () => {
+    state.hasStarted = true;
     state.lives = MAX_LIVES;
+    newGameBtn.textContent = "Neues Spiel";
     startLevel(true, true);
   });
 
@@ -746,5 +787,6 @@ window.addEventListener("resize", () => {
 setupInput();
 setupTouchControls();
 fitCanvas();
-startLevel(true, true);
+statusText.textContent = "Druecke Start, um zu beginnen.";
+updateHUD();
 requestAnimationFrame(renderLoop);

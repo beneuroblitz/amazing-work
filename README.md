@@ -6,17 +6,19 @@ Gameplay: Der Loesungsweg leuchtet 5 Sekunden auf und verschwindet dann. Danach 
 ## Spielregeln
 
 - Vorschauzeit ist immer fix: `5 Sekunden`
+- Spiel startet erst nach Klick auf `Start`
 - Nach der Vorschau: Fog-of-War + pulsierende Torch um den Spieler
 - Im Fog sind die Maze-Waende nicht sichtbar
 - Bewegte Route bleibt als Lichtpfad sichtbar
-- Der Vorschaupfad baut sich zuerst kurz animiert auf, danach Countdown: `3, 2, 1, GO`
+- Der Vorschaupfad baut sich in ca. `1-2s` animiert auf, danach Countdown: `3, 2, 1, GO`
 - Level-Groesse steigt von `5x5` bis `9x9`
 - Modi:
   - `Easy`: kuerzere Pflichtpfade
   - `Normal`: laengerer Pflichtpfad
   - `Hard`: noch laengerer Pflichtpfad
 - Pro Run: `3` Leben (`⚡⚡⚡`)
-- Bei Wandkontakt: Strike-Animation (Flash + Shake), 1 Leben weg und weiterspielen von der aktuellen Position
+- Bei Wandkontakt: Strike-Animation (Flash + Shake), 1 Leben weg und weiterspielen an der Fehlerposition
+- Beim Level-Clear erscheint ein kurzer Reward-Screen
 - Touch-Steuerung: auf dem Canvas sliden/swipen (iOS Safari kompatibel per Pointer-/Touch-Handling)
 - Bei Zielerreichung: Nebel verschwindet, ganzes Spielfeld wird wieder sichtbar
 - Bei Verbrauch des letzten Blitzes: `Game Over`
