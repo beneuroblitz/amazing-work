@@ -431,8 +431,19 @@ function canUseCloud() {
     FIREBASE_CONFIG.apiKey &&
       FIREBASE_CONFIG.authDomain &&
       FIREBASE_CONFIG.projectId &&
-      window.firebase
+      window.firebase &&
+      typeof window.firebase.initializeApp === "function"
   );
+}
+
+function getCloudIssueMessage() {
+  if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.authDomain || !FIREBASE_CONFIG.projectId) {
+    return "Firebase-Konfig unvollstaendig.";
+  }
+  if (!window.firebase || typeof window.firebase.initializeApp !== "function") {
+    return "Firebase SDK nicht geladen (Script/CSP/Adblock pruefen).";
+  }
+  return "Cloud verfügbar.";
 }
 
 async function fetchCloudLeaderboard() {
@@ -474,7 +485,7 @@ async function submitCloudScore(score) {
 
 function initAuth() {
   if (!canUseCloud()) {
-    setAuthStatus("Gastmodus: Lokaler Highscore aktiv.");
+    setAuthStatus(`Gastmodus aktiv. ${getCloudIssueMessage()}`);
     return;
   }
 
@@ -499,7 +510,7 @@ function initAuth() {
 
 async function registerWithEmail() {
   if (!state.cloudEnabled) {
-    setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+    setAuthStatus(`Cloud nicht bereit. ${getCloudIssueMessage()}`);
     return;
   }
   const email = emailInput.value.trim();
@@ -521,7 +532,7 @@ async function registerWithEmail() {
 
 async function loginWithEmail() {
   if (!state.cloudEnabled) {
-    setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+    setAuthStatus(`Cloud nicht bereit. ${getCloudIssueMessage()}`);
     return;
   }
   const email = emailInput.value.trim();
@@ -543,7 +554,7 @@ async function loginWithEmail() {
 
 async function loginWithGoogle() {
   if (!state.cloudEnabled) {
-    setAuthStatus("Cloud nicht konfiguriert. Bitte Firebase-Konfig setzen.");
+    setAuthStatus(`Cloud nicht bereit. ${getCloudIssueMessage()}`);
     return;
   }
   try {
