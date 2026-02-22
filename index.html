@@ -2,7 +2,7 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Amazing - Memory Maze</title>
     <meta
       name="description"
@@ -11,23 +11,74 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="game-shell" role="main">
-      <header class="topbar">
-        <h1 class="title">AMAZING</h1>
-        <p class="subtitle">Memory Maze</p>
-      </header>
+    <section id="launcher" class="launcher" aria-label="Spiel starten">
+      <div class="launcher-card">
+        <button id="launcherLeaderboardBtn" class="icon-btn" aria-label="Leaderboard oeffnen">🏆</button>
+        <h1 class="launcher-title">AMAZING</h1>
+        <p class="launcher-subtitle">Memory Maze</p>
+        <button id="launcherPlayBtn" class="play-btn">Spielen</button>
+      </div>
+    </section>
 
-      <section class="difficulty" aria-label="Schwierigkeit">
-        <span class="difficulty-label">Mode:</span>
-        <div class="difficulty-buttons">
-          <button class="btn mode-btn is-active" data-mode="easy">Easy</button>
-          <button class="btn mode-btn" data-mode="medium">Medium</button>
-          <button class="btn mode-btn" data-mode="hard">Hard</button>
+    <div id="appOverlay" class="app-overlay is-hidden" role="dialog" aria-modal="true">
+      <button id="closeOverlayBtn" class="close-overlay" aria-label="Schliessen">✕</button>
+
+      <main class="game-shell" role="main">
+        <header class="topbar compact-topbar">
+          <div>
+            <h1 class="title">AMAZING</h1>
+            <p class="subtitle">Memory Maze</p>
+          </div>
+          <div class="topbar-actions">
+            <button id="openLeaderboardBtn" class="icon-btn" aria-label="Leaderboard">🏆</button>
+            <button id="openProfileBtn" class="icon-btn" aria-label="Profil & Login">👤</button>
+          </div>
+        </header>
+
+        <section class="difficulty" aria-label="Schwierigkeit">
+          <span class="difficulty-label">Mode:</span>
+          <div class="difficulty-buttons">
+            <button class="btn mode-btn is-active" data-mode="easy">Easy</button>
+            <button class="btn mode-btn" data-mode="medium">Medium</button>
+            <button class="btn mode-btn" data-mode="hard">Hard</button>
+          </div>
+        </section>
+
+        <section class="hud" aria-label="Spielstatus">
+          <p id="statusText">Merke dir den Weg. 5 Sekunden Vorschau.</p>
+          <div class="stats">
+            <span id="levelText">Level: 1</span>
+            <span id="gridText">Grid: 5x5</span>
+            <span id="livesText">Leben: ⚡⚡⚡</span>
+            <span id="scoreText">Score: 0</span>
+            <span id="movesText">Moves: 0</span>
+            <span id="timeText">Zeit: 0s</span>
+          </div>
+        </section>
+
+        <section class="canvas-wrap">
+          <canvas id="mazeCanvas" width="960" height="640" aria-label="Maze Spielfeld"></canvas>
+        </section>
+
+        <section class="controls" aria-label="Steuerung">
+          <button id="newGameBtn" class="btn primary">Start</button>
+          <button id="nextLevelBtn" class="btn" disabled>Naechstes Level</button>
+          <button id="closeInlineBtn" class="btn ghost">Schliessen</button>
+        </section>
+
+        <footer class="hint">
+          <p>Mobil: sliden/swipen. Preview mit 3-2-1-Go, dann Fog. Bei Strike verlierst du 1 Blitz.</p>
+        </footer>
+      </main>
+    </div>
+
+    <section id="metaModal" class="sheet is-hidden" aria-live="polite">
+      <article class="sheet-card">
+        <div class="sheet-head">
+          <h2>Profil & Login</h2>
+          <button id="closeMetaModalBtn" class="icon-btn" aria-label="Schliessen">✕</button>
         </div>
-      </section>
 
-      <details class="meta-panel">
-        <summary>Profil, Login, Leaderboard</summary>
         <section class="profile" aria-label="Profil und Highscore">
           <div class="profile-row">
             <label for="profileInput">Profil:</label>
@@ -52,55 +103,46 @@
           </div>
           <p id="authStatusText">Gastmodus: Lokaler Highscore aktiv.</p>
         </section>
+      </article>
+    </section>
 
+    <section id="leaderboardModal" class="sheet is-hidden" aria-live="polite">
+      <article class="sheet-card">
+        <div class="sheet-head">
+          <h2>Leaderboard</h2>
+          <button id="closeLeaderboardModalBtn" class="icon-btn" aria-label="Schliessen">✕</button>
+        </div>
         <section class="leaderboard" aria-label="Leaderboard">
-          <p class="leaderboard-title">Leaderboard</p>
           <ol id="leaderboardList">
             <li>Keine Eintraege</li>
           </ol>
         </section>
-      </details>
-
-      <section class="hud" aria-label="Spielstatus">
-        <p id="statusText">Merke dir den Weg. 5 Sekunden Vorschau.</p>
-        <div class="stats">
-          <span id="levelText">Level: 1</span>
-          <span id="gridText">Grid: 5x5</span>
-          <span id="livesText">Leben: ⚡⚡⚡</span>
-          <span id="scoreText">Score: 0</span>
-          <span id="movesText">Moves: 0</span>
-          <span id="timeText">Zeit: 0s</span>
-        </div>
-      </section>
-
-      <section class="canvas-wrap">
-        <canvas id="mazeCanvas" width="960" height="640" aria-label="Maze Spielfeld"></canvas>
-      </section>
-
-      <section class="controls" aria-label="Steuerung">
-        <button id="newGameBtn" class="btn">Start</button>
-        <button id="nextLevelBtn" class="btn" disabled>Naechstes Level</button>
-      </section>
-
-      <footer class="hint">
-        <p>Druecke Start. Mobil: auf dem Spielfeld sliden/swipen. Preview mit 3-2-1-Go, dann Fog. Bei Strike verlierst du 1 Blitz.</p>
-      </footer>
-    </main>
+      </article>
+    </section>
 
     <section id="resultOverlay" class="result-overlay is-hidden" aria-live="polite">
       <article class="result-card">
         <h2 id="resultTitle">LEVEL CLEAR</h2>
         <p id="resultSummary">Zeit: 0s | Fehler: 0 | Punkte: 0</p>
         <p id="resultAuthHint">Melde dich an, um deinen Fortschritt online zu speichern.</p>
+        <ol id="resultTopList" class="result-toplist is-hidden"></ol>
         <div class="result-actions">
-          <button id="resultPrimaryBtn" class="btn">Naechstes Level</button>
-          <button id="resultSecondaryBtn" class="btn">Abbrechen</button>
+          <button id="resultPrimaryBtn" class="btn primary">Naechstes Level</button>
+          <button id="resultSecondaryBtn" class="btn ghost">Abbrechen</button>
         </div>
         <div class="result-auth-actions">
           <button id="resultRegisterBtn" class="btn">Registrieren</button>
           <button id="resultGoogleBtn" class="btn">Google Login</button>
+          <button id="resultCloseAppBtn" class="btn ghost">Beenden</button>
         </div>
       </article>
+    </section>
+
+    <section id="loadingOverlay" class="loading-overlay is-hidden" aria-live="assertive" aria-busy="true">
+      <div class="loading-card">
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="loadingText">Lade...</p>
+      </div>
     </section>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>

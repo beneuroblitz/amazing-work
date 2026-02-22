@@ -1,5 +1,17 @@
 const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
+const launcher = document.getElementById("launcher");
+const launcherPlayBtn = document.getElementById("launcherPlayBtn");
+const launcherLeaderboardBtn = document.getElementById("launcherLeaderboardBtn");
+const appOverlay = document.getElementById("appOverlay");
+const closeOverlayBtn = document.getElementById("closeOverlayBtn");
+const closeInlineBtn = document.getElementById("closeInlineBtn");
+const openLeaderboardBtn = document.getElementById("openLeaderboardBtn");
+const openProfileBtn = document.getElementById("openProfileBtn");
+const metaModal = document.getElementById("metaModal");
+const leaderboardModal = document.getElementById("leaderboardModal");
+const closeMetaModalBtn = document.getElementById("closeMetaModalBtn");
+const closeLeaderboardModalBtn = document.getElementById("closeLeaderboardModalBtn");
 
 const statusText = document.getElementById("statusText");
 const levelText = document.getElementById("levelText");
@@ -29,6 +41,10 @@ const resultPrimaryBtn = document.getElementById("resultPrimaryBtn");
 const resultSecondaryBtn = document.getElementById("resultSecondaryBtn");
 const resultRegisterBtn = document.getElementById("resultRegisterBtn");
 const resultGoogleBtn = document.getElementById("resultGoogleBtn");
+const resultCloseAppBtn = document.getElementById("resultCloseAppBtn");
+const resultTopList = document.getElementById("resultTopList");
+const loadingOverlay = document.getElementById("loadingOverlay");
+const loadingText = document.getElementById("loadingText");
 const nextLevelBtn = document.getElementById("nextLevelBtn");
 const newGameBtn = document.getElementById("newGameBtn");
 const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
@@ -317,6 +333,21 @@ function renderLeaderboard() {
   });
 }
 
+function renderTopListPreview() {
+  const rows = state.leaderboard.slice(0, 3);
+  resultTopList.innerHTML = "";
+  if (!rows.length) {
+    resultTopList.classList.add("is-hidden");
+    return;
+  }
+  rows.forEach((row) => {
+    const li = document.createElement("li");
+    li.textContent = `${row.name} - ${row.score}`;
+    resultTopList.appendChild(li);
+  });
+  resultTopList.classList.remove("is-hidden");
+}
+
 function getUnlockedModes() {
   const bestHighscore = state.highscores[0]?.score || 0;
   const unlockScore = Math.max(state.score, bestHighscore);
@@ -383,6 +414,51 @@ function setAuthStatus(message) {
   authStatusText.textContent = message;
 }
 
+function setLoadingOverlay(visible, message = "Lade...") {
+  loadingText.textContent = message;
+  loadingOverlay.classList.toggle("is-hidden", !visible);
+}
+
+function formatAuthError(err, actionLabel) {
+  const code = err?.code || "";
+  const host = location.hostname;
+  const map = {
+    "auth/unauthorized-domain": `Google-Login blockiert: Domain '${host}' in Firebase Auth > Authorized domains eintragen.`,
+    "auth/operation-not-allowed":
+      "Anmeldung deaktiviert: Provider in Firebase Authentication aktivieren.",
+    "auth/popup-blocked": "Popup blockiert. Bitte Popups erlauben oder direkt im neuen Tab oeffnen.",
+    "auth/popup-closed-by-user": "Login abgebrochen (Popup geschlossen).",
+    "auth/invalid-email": "Bitte eine gueltige E-Mail-Adresse eingeben.",
+    "auth/user-not-found": "Kein Konto mit dieser E-Mail gefunden.",
+    "auth/wrong-password": "Passwort ist falsch.",
+    "auth/invalid-credential": "Login fehlgeschlagen. E-Mail oder Passwort pruefen.",
+    "auth/email-already-in-use": "Diese E-Mail ist bereits registriert.",
+    "auth/weak-password": "Passwort zu schwach (mindestens 6 Zeichen).",
+    "auth/network-request-failed": "Netzwerkfehler. Verbindung pruefen und erneut versuchen.",
+  };
+  if (map[code]) return map[code];
+  if (String(err?.message || "").includes("403")) {
+    return `403-Fehler: Google Provider aktivieren und Domain '${host}' autorisieren.`;
+  }
+  return `${actionLabel} fehlgeschlagen: ${err?.message || "Unbekannter Fehler"}`;
+}
+
+function hasContinuableRun() {
+  return state.hasStarted && (state.phase === "preview" || state.phase === "play");
+}
+
+function refreshLauncherState() {
+  if (hasContinuableRun()) {
+    launcherPlayBtn.textContent = "Weiter";
+    return;
+  }
+  if (state.hasStarted) {
+    launcherPlayBtn.textContent = "Neues Spiel";
+    return;
+  }
+  launcherPlayBtn.textContent = "Spielen";
+}
+
 function showResultOverlay(type) {
   state.overlayType = type;
   resultOverlay.classList.remove("is-hidden");
@@ -398,6 +474,7 @@ function showResultOverlay(type) {
     const userHint = "Fortschritt gespeichert. Du kannst direkt weiterspielen.";
     resultAuthHint.textContent = state.user ? userHint : guestHint;
     resultAuthHint.style.display = "";
+    resultTopList.classList.add("is-hidden");
     const showAuth = !state.user;
     resultRegisterBtn.style.display = showAuth ? "" : "none";
     resultGoogleBtn.style.display = showAuth ? "" : "none";
@@ -415,6 +492,7 @@ function showResultOverlay(type) {
       ? "Dein Ergebnis wurde fuer das Leaderboard beruecksichtigt."
       : "Melde dich an, um dich mit anderen zu vergleichen.";
     resultAuthHint.style.display = "";
+    renderTopListPreview();
     const showAuth = !state.user;
     resultRegisterBtn.style.display = showAuth ? "" : "none";
     resultGoogleBtn.style.display = showAuth ? "" : "none";
@@ -424,6 +502,46 @@ function showResultOverlay(type) {
 function hideResultOverlay() {
   resultOverlay.classList.add("is-hidden");
   state.overlayType = "";
+}
+
+function openSheet(sheetEl) {
+  metaModal.classList.add("is-hidden");
+  leaderboardModal.classList.add("is-hidden");
+  sheetEl.classList.remove("is-hidden");
+}
+
+function closeSheets() {
+  metaModal.classList.add("is-hidden");
+  leaderboardModal.classList.add("is-hidden");
+}
+
+async function openGameOverlay() {
+  launcher.classList.add("is-hidden");
+  appOverlay.classList.remove("is-hidden");
+  refreshLauncherState();
+  fitCanvas();
+  try {
+    if (document.fullscreenEnabled && !document.fullscreenElement) {
+      await appOverlay.requestFullscreen();
+    }
+  } catch (_err) {
+    // Fallback: fixed overlay still works inside iframe
+  }
+}
+
+async function closeGameOverlay() {
+  hideResultOverlay();
+  closeSheets();
+  appOverlay.classList.add("is-hidden");
+  launcher.classList.remove("is-hidden");
+  refreshLauncherState();
+  if (document.fullscreenElement) {
+    try {
+      await document.exitFullscreen();
+    } catch (_err) {
+      // ignore
+    }
+  }
 }
 
 function canUseCloud() {
@@ -449,6 +567,7 @@ function getCloudIssueMessage() {
 async function fetchCloudLeaderboard() {
   if (!state.cloudEnabled || !window.firebase?.firestore) return;
   try {
+    setLoadingOverlay(true, "Leaderboard wird geladen...");
     const snapshot = await window.firebase
       .firestore()
       .collection("mazeLeaderboard")
@@ -463,6 +582,8 @@ async function fetchCloudLeaderboard() {
     }
   } catch (_err) {
     // keep local leaderboard fallback
+  } finally {
+    setLoadingOverlay(false);
   }
 }
 
@@ -521,12 +642,14 @@ async function registerWithEmail() {
   }
   try {
     state.cloudBusy = true;
+    setLoadingOverlay(true, "Registriere Konto...");
     await window.firebase.auth().createUserWithEmailAndPassword(email, password);
     setAuthStatus("Registrierung erfolgreich.");
   } catch (err) {
-    setAuthStatus(`Registrierung fehlgeschlagen: ${err.message}`);
+    setAuthStatus(formatAuthError(err, "Registrierung"));
   } finally {
     state.cloudBusy = false;
+    setLoadingOverlay(false);
   }
 }
 
@@ -543,12 +666,14 @@ async function loginWithEmail() {
   }
   try {
     state.cloudBusy = true;
+    setLoadingOverlay(true, "Melde an...");
     await window.firebase.auth().signInWithEmailAndPassword(email, password);
     setAuthStatus("Login erfolgreich.");
   } catch (err) {
-    setAuthStatus(`Login fehlgeschlagen: ${err.message}`);
+    setAuthStatus(formatAuthError(err, "Login"));
   } finally {
     state.cloudBusy = false;
+    setLoadingOverlay(false);
   }
 }
 
@@ -559,6 +684,7 @@ async function loginWithGoogle() {
   }
   try {
     state.cloudBusy = true;
+    setLoadingOverlay(true, "Google-Login startet...");
     const provider = new window.firebase.auth.GoogleAuthProvider();
     const inIframe = (() => {
       try {
@@ -569,7 +695,13 @@ async function loginWithGoogle() {
     })();
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    if (inIframe || isMobile) {
+    if (inIframe) {
+      await window.firebase.auth().signInWithPopup(provider);
+      setAuthStatus("Google-Login erfolgreich.");
+      return;
+    }
+
+    if (isMobile) {
       await window.firebase.auth().signInWithRedirect(provider);
       setAuthStatus("Google-Login gestartet (Redirect)...");
       return;
@@ -578,19 +710,10 @@ async function loginWithGoogle() {
     await window.firebase.auth().signInWithPopup(provider);
     setAuthStatus("Google-Login erfolgreich.");
   } catch (err) {
-    if (err?.code === "auth/unauthorized-domain") {
-      setAuthStatus(
-        `Google-Login blockiert: Domain '${location.hostname}' in Firebase Auth > Authorized domains eintragen.`
-      );
-      return;
-    }
-    if (err?.code === "auth/popup-blocked") {
-      setAuthStatus("Popup blockiert. Bitte Popups erlauben oder Redirect-Login nutzen.");
-      return;
-    }
-    setAuthStatus(`Google-Login fehlgeschlagen: ${err?.message || "Unbekannter Fehler"}`);
+    setAuthStatus(formatAuthError(err, "Google-Login"));
   } finally {
     state.cloudBusy = false;
+    setLoadingOverlay(false);
   }
 }
 
@@ -601,6 +724,10 @@ function updateHUD() {
   scoreText.textContent = `Score: ${state.score}`;
   movesText.textContent = `Moves: ${state.moves}`;
   timeText.textContent = `Zeit: ${state.elapsed}s`;
+
+  // Minimal HUD in active play: show only core gameplay controls
+  const playing = state.phase === "play";
+  document.body.classList.toggle("is-playing", playing);
 }
 
 function startTimer() {
@@ -665,6 +792,7 @@ function startLevel(resetLevel = false, withPreview = true) {
     statusText.textContent = "Nebel aktiv. Folge deinem Lichtpfad.";
   }
   updateHUD();
+  refreshLauncherState();
 }
 
 function gameOver() {
@@ -681,6 +809,7 @@ function gameOver() {
   statusText.textContent = "Game Over. Starte ein neues Spiel.";
   showResultOverlay("game-over");
   updateHUD();
+  refreshLauncherState();
 }
 
 function triggerStrike(dirName) {
@@ -889,33 +1018,6 @@ function drawStrikeOverlay(now, offsetX, offsetY) {
   }
 }
 
-function drawRewardOverlay(now) {
-  if (state.phase !== "done") return;
-
-  ctx.save();
-  ctx.fillStyle = "rgba(255,255,255,0.4)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const w = Math.min(canvas.width - 40, 420);
-  const h = 168;
-  const x = (canvas.width - w) / 2;
-  const y = (canvas.height - h) / 2 - 6;
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.strokeStyle = "#1d2478";
-  ctx.lineWidth = 2;
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeRect(x, y, w, h);
-  ctx.fillStyle = "#1d2478";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `800 ${Math.max(20, state.cellSize * 0.74)}px "Open Sans", Calibri, Arial, sans-serif`;
-  ctx.fillText("LEVEL CLEAR", canvas.width / 2, canvas.height / 2 - 42);
-  ctx.font = `600 ${Math.max(12, state.cellSize * 0.38)}px "Open Sans", Calibri, Arial, sans-serif`;
-  ctx.fillText(`Zeit: ${state.lastLevelTime}s`, canvas.width / 2, canvas.height / 2 - 6);
-  ctx.fillText(`Fehler: ${state.lastLevelErrors}`, canvas.width / 2, canvas.height / 2 + 20);
-  ctx.fillText(`Punkte: +${state.lastLevelPoints}`, canvas.width / 2, canvas.height / 2 + 46);
-  ctx.restore();
-}
-
 function draw(now = performance.now()) {
   let shakeX = 0;
   let shakeY = 0;
@@ -1041,6 +1143,7 @@ function move(dirName) {
     submitCloudScore(state.score);
     nextLevelBtn.disabled = false;
     showResultOverlay("level-clear");
+    refreshLauncherState();
   }
 
   updateHUD();
@@ -1197,6 +1300,22 @@ function setDifficulty(mode) {
 function setupInput() {
   window.addEventListener("keydown", onKeyDown, { passive: false });
 
+  launcherPlayBtn.addEventListener("click", async () => {
+    await openGameOverlay();
+    if (!hasContinuableRun() && !state.hasStarted) {
+      return;
+    }
+  });
+  launcherLeaderboardBtn.addEventListener("click", () => {
+    openSheet(leaderboardModal);
+  });
+  closeOverlayBtn.addEventListener("click", closeGameOverlay);
+  closeInlineBtn.addEventListener("click", closeGameOverlay);
+  openLeaderboardBtn.addEventListener("click", () => openSheet(leaderboardModal));
+  openProfileBtn.addEventListener("click", () => openSheet(metaModal));
+  closeMetaModalBtn.addEventListener("click", closeSheets);
+  closeLeaderboardModalBtn.addEventListener("click", closeSheets);
+
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => setDifficulty(button.dataset.mode));
   });
@@ -1220,12 +1339,14 @@ function setupInput() {
     updateModeLocks();
     newGameBtn.textContent = "Neues Spiel";
     startLevel(true, true);
+    refreshLauncherState();
   });
 
   nextLevelBtn.addEventListener("click", () => {
     state.level += 1;
     hideResultOverlay();
     startLevel(false, true);
+    refreshLauncherState();
   });
 
   registerBtn.addEventListener("click", registerWithEmail);
@@ -1247,6 +1368,7 @@ function setupInput() {
       hideResultOverlay();
       state.level += 1;
       startLevel(false, true);
+      refreshLauncherState();
       return;
     }
     if (state.overlayType === "game-over") {
@@ -1259,6 +1381,7 @@ function setupInput() {
       updateModeLocks();
       newGameBtn.textContent = "Neues Spiel";
       startLevel(true, true);
+      refreshLauncherState();
     }
   });
 
@@ -1268,6 +1391,7 @@ function setupInput() {
 
   resultRegisterBtn.addEventListener("click", registerWithEmail);
   resultGoogleBtn.addEventListener("click", loginWithGoogle);
+  resultCloseAppBtn.addEventListener("click", closeGameOverlay);
 }
 
 function fitCanvas() {
