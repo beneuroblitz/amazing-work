@@ -5,7 +5,6 @@ const launcherPlayBtn = document.getElementById("launcherPlayBtn");
 const launcherLeaderboardBtn = document.getElementById("launcherLeaderboardBtn");
 const appOverlay = document.getElementById("appOverlay");
 const closeOverlayBtn = document.getElementById("closeOverlayBtn");
-const closeInlineBtn = document.getElementById("closeInlineBtn");
 const openLeaderboardBtn = document.getElementById("openLeaderboardBtn");
 const openProfileBtn = document.getElementById("openProfileBtn");
 const metaModal = document.getElementById("metaModal");
@@ -45,8 +44,6 @@ const resultCloseAppBtn = document.getElementById("resultCloseAppBtn");
 const resultTopList = document.getElementById("resultTopList");
 const loadingOverlay = document.getElementById("loadingOverlay");
 const loadingText = document.getElementById("loadingText");
-const nextLevelBtn = document.getElementById("nextLevelBtn");
-const newGameBtn = document.getElementById("newGameBtn");
 const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
 
 const PREVIEW_MS = 5000;
@@ -479,6 +476,8 @@ function showResultOverlay(type) {
     const showAuth = !state.user;
     resultRegisterBtn.style.display = showAuth ? "" : "none";
     resultGoogleBtn.style.display = showAuth ? "" : "none";
+    resultCloseAppBtn.style.display = "";
+    resultOverlay.style.pointerEvents = "auto";
   }
 }
 
@@ -756,7 +755,6 @@ function startLevel(resetLevel = false, withPreview = true) {
   state.winBannerUntil = 0;
 
   clearTimeout(state.previewTimer);
-  nextLevelBtn.disabled = true;
 
   if (withPreview) {
     state.phase = "preview";
@@ -792,7 +790,6 @@ function gameOver() {
   state.completed = false;
   clearInterval(state.timer);
   clearTimeout(state.previewTimer);
-  nextLevelBtn.disabled = true;
   statusText.textContent = "Game Over. Starte ein neues Spiel.";
   showResultOverlay("game-over");
   updateHUD();
@@ -1152,7 +1149,6 @@ function move(dirName) {
     pushHighscore(state.score);
     pushLeaderboard(state.score);
     submitCloudScore(state.score);
-    nextLevelBtn.disabled = false;
     state.winBannerUntil = performance.now() + 1500;
     statusText.textContent = `Level Clear! +${levelScore} Punkte`;
     clearTimeout(state.levelAdvanceTimer);
@@ -1328,7 +1324,6 @@ function setupInput() {
     state.lastSavedScore = 0;
     saveScore();
     updateModeLocks();
-    newGameBtn.textContent = "Neues Spiel";
     startLevel(true, true);
     refreshLauncherState();
   }
@@ -1343,7 +1338,6 @@ function setupInput() {
     openSheet(leaderboardModal);
   });
   closeOverlayBtn.addEventListener("click", closeGameOverlay);
-  closeInlineBtn.addEventListener("click", closeGameOverlay);
   openLeaderboardBtn.addEventListener("click", () => openSheet(leaderboardModal));
   openProfileBtn.addEventListener("click", () => openSheet(metaModal));
   closeMetaModalBtn.addEventListener("click", closeSheets);
@@ -1360,17 +1354,6 @@ function setupInput() {
     renderProfile();
     renderHighscore();
     renderLeaderboard();
-  });
-
-  newGameBtn.addEventListener("click", () => {
-    startFreshRun();
-  });
-
-  nextLevelBtn.addEventListener("click", () => {
-    state.level += 1;
-    hideResultOverlay();
-    startLevel(false, true);
-    refreshLauncherState();
   });
 
   registerBtn.addEventListener("click", registerWithEmail);
@@ -1437,6 +1420,15 @@ function fitCanvas() {
   calcCellSize();
 }
 
+function ensureTopbarButtonsClickable() {
+  [openLeaderboardBtn, openProfileBtn].forEach((button) => {
+    if (!button) return;
+    button.style.pointerEvents = "auto";
+    button.style.position = "relative";
+    button.style.zIndex = "5";
+  });
+}
+
 function renderLoop(now) {
   draw(now);
   requestAnimationFrame(renderLoop);
@@ -1458,6 +1450,7 @@ updateModeLocks();
 renderLeaderboard();
 initAuth();
 fitCanvas();
+ensureTopbarButtonsClickable();
 statusText.textContent = "Druecke Start, um zu beginnen.";
 updateHUD();
 requestAnimationFrame(renderLoop);
