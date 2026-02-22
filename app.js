@@ -130,6 +130,7 @@ const state = {
   phase: "idle",
   solutionPath: [],
   winBannerUntil: 0,
+  levelAdvanceTimer: null,
   hasStarted: false,
   overlayType: "",
   strike: {
@@ -463,24 +464,6 @@ function showResultOverlay(type) {
   state.overlayType = type;
   resultOverlay.classList.remove("is-hidden");
 
-  if (type === "level-clear") {
-    resultTitle.textContent = "LEVEL CLEAR";
-    resultSummary.textContent = `Zeit: ${state.lastLevelTime}s | Fehler: ${state.lastLevelErrors} | Punkte: +${state.lastLevelPoints}`;
-    resultPrimaryBtn.textContent = "Naechstes Level";
-    resultSecondaryBtn.textContent = "Abbrechen";
-    resultPrimaryBtn.style.display = "";
-    resultSecondaryBtn.style.display = "";
-    const guestHint = "Melde dich an, um deinen Fortschritt online zu speichern.";
-    const userHint = "Fortschritt gespeichert. Du kannst direkt weiterspielen.";
-    resultAuthHint.textContent = state.user ? userHint : guestHint;
-    resultAuthHint.style.display = "";
-    resultTopList.classList.add("is-hidden");
-    const showAuth = !state.user;
-    resultRegisterBtn.style.display = showAuth ? "" : "none";
-    resultGoogleBtn.style.display = showAuth ? "" : "none";
-    return;
-  }
-
   if (type === "game-over") {
     resultTitle.textContent = "GAME OVER";
     resultSummary.textContent = `Gesamtpunkte: ${state.score} | Fehler gesamt: ${state.runErrors}`;
@@ -489,8 +472,8 @@ function showResultOverlay(type) {
     resultPrimaryBtn.style.display = "";
     resultSecondaryBtn.style.display = "";
     resultAuthHint.textContent = state.user
-      ? "Dein Ergebnis wurde fuer das Leaderboard beruecksichtigt."
-      : "Melde dich an, um dich mit anderen zu vergleichen.";
+      ? "Dein Lauf ist beendet. Dein Highscore wurde fuer das Leaderboard beruecksichtigt."
+      : "Melde dich an, um deinen Highscore im Leaderboard zu sichern!";
     resultAuthHint.style.display = "";
     renderTopListPreview();
     const showAuth = !state.user;
@@ -755,6 +738,8 @@ function resetTraversalAtStart() {
 
 function startLevel(resetLevel = false, withPreview = true) {
   if (resetLevel) state.level = 1;
+  clearTimeout(state.levelAdvanceTimer);
+  state.levelAdvanceTimer = null;
 
   state.size = getGridSize();
   calcCellSize();
@@ -796,6 +781,8 @@ function startLevel(resetLevel = false, withPreview = true) {
 }
 
 function gameOver() {
+  clearTimeout(state.levelAdvanceTimer);
+  state.levelAdvanceTimer = null;
   if (state.score > 0) {
     pushHighscore(state.score);
     pushLeaderboard(state.score);
@@ -1093,6 +1080,30 @@ function draw(now = performance.now()) {
   drawFogWithTorch(offsetX, offsetY, now);
   drawPreviewCountdown(now);
   drawStrikeOverlay(now, offsetX, offsetY);
+  drawWinBanner(now);
+}
+
+function drawWinBanner(now) {
+  if (!state.winBannerUntil || now > state.winBannerUntil) return;
+
+  const alpha = Math.min(1, (state.winBannerUntil - now) / 450 + 0.15);
+  ctx.save();
+  ctx.fillStyle = `rgba(255,255,255,${Math.min(0.92, alpha)})`;
+  const w = Math.min(canvas.width - 32, Math.max(180, state.cellSize * 5.4));
+  const h = Math.max(54, state.cellSize * 1.45);
+  const x = (canvas.width - w) / 2;
+  const y = (canvas.height - h) / 2;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "rgba(29,36,120,0.85)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.fillStyle = "#1d2478";
+  ctx.font = `800 ${Math.max(16, state.cellSize * 0.52)}px "Open Sans", Calibri, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Level Clear!", canvas.width / 2, canvas.height / 2);
+  ctx.restore();
 }
 
 function move(dirName) {
@@ -1142,7 +1153,15 @@ function move(dirName) {
     pushLeaderboard(state.score);
     submitCloudScore(state.score);
     nextLevelBtn.disabled = false;
-    showResultOverlay("level-clear");
+    state.winBannerUntil = performance.now() + 1500;
+    statusText.textContent = `Level Clear! +${levelScore} Punkte`;
+    clearTimeout(state.levelAdvanceTimer);
+    state.levelAdvanceTimer = setTimeout(() => {
+      if (state.phase !== "done") return;
+      state.level += 1;
+      startLevel(false, true);
+      refreshLauncherState();
+    }, 1500);
     refreshLauncherState();
   }
 
@@ -1300,10 +1319,24 @@ function setDifficulty(mode) {
 function setupInput() {
   window.addEventListener("keydown", onKeyDown, { passive: false });
 
+  function startFreshRun() {
+    hideResultOverlay();
+    closeSheets();
+    state.hasStarted = true;
+    state.lives = MAX_LIVES;
+    state.score = 0;
+    state.lastSavedScore = 0;
+    saveScore();
+    updateModeLocks();
+    newGameBtn.textContent = "Neues Spiel";
+    startLevel(true, true);
+    refreshLauncherState();
+  }
+
   launcherPlayBtn.addEventListener("click", async () => {
     await openGameOverlay();
-    if (!hasContinuableRun() && !state.hasStarted) {
-      return;
+    if (!hasContinuableRun()) {
+      startFreshRun();
     }
   });
   launcherLeaderboardBtn.addEventListener("click", () => {
@@ -1330,16 +1363,7 @@ function setupInput() {
   });
 
   newGameBtn.addEventListener("click", () => {
-    hideResultOverlay();
-    state.hasStarted = true;
-    state.lives = MAX_LIVES;
-    state.score = 0;
-    state.lastSavedScore = 0;
-    saveScore();
-    updateModeLocks();
-    newGameBtn.textContent = "Neues Spiel";
-    startLevel(true, true);
-    refreshLauncherState();
+    startFreshRun();
   });
 
   nextLevelBtn.addEventListener("click", () => {
@@ -1364,24 +1388,8 @@ function setupInput() {
   });
 
   resultPrimaryBtn.addEventListener("click", () => {
-    if (state.overlayType === "level-clear") {
-      hideResultOverlay();
-      state.level += 1;
-      startLevel(false, true);
-      refreshLauncherState();
-      return;
-    }
     if (state.overlayType === "game-over") {
-      hideResultOverlay();
-      state.hasStarted = true;
-      state.lives = MAX_LIVES;
-      state.score = 0;
-      state.lastSavedScore = 0;
-      saveScore();
-      updateModeLocks();
-      newGameBtn.textContent = "Neues Spiel";
-      startLevel(true, true);
-      refreshLauncherState();
+      startFreshRun();
     }
   });
 
@@ -1396,20 +1404,35 @@ function setupInput() {
 
 function fitCanvas() {
   const isMobile = window.matchMedia("(max-width: 780px)").matches;
-  const ratio = isMobile ? 1.0 : 1.5;
-  const rect = canvas.getBoundingClientRect();
   const wrap = canvas.parentElement;
-  const availableH = wrap ? Math.max(220, Math.floor(wrap.clientHeight - 8)) : null;
-  const displayWidth = Math.max(320, Math.floor(rect.width));
-  const targetHeight = Math.floor(displayWidth / ratio);
-  const mobileMin = Math.floor(window.innerHeight * 0.52);
-  let displayHeight = isMobile ? Math.max(targetHeight, mobileMin) : targetHeight;
-  if (availableH) {
-    displayHeight = Math.min(displayHeight, availableH);
+  const ratio = isMobile ? 1 : 1.5;
+  const availableW = Math.max(280, Math.floor((wrap?.clientWidth || window.innerWidth) - 8));
+  const availableHRaw = wrap?.clientHeight || Math.floor(window.innerHeight * (isMobile ? 0.62 : 0.7));
+  const availableH = Math.max(220, Math.floor(availableHRaw - 8));
+
+  let displayWidth = availableW;
+  let displayHeight = Math.floor(displayWidth / ratio);
+
+  if (displayHeight > availableH) {
+    displayHeight = availableH;
+    displayWidth = Math.floor(displayHeight * ratio);
+  }
+
+  // Guarantee exact aspect ratio and avoid CSS stretch on mobile/iframe.
+  displayWidth = Math.max(220, displayWidth);
+  displayHeight = Math.max(220, Math.floor(displayWidth / ratio));
+  if (displayHeight > availableH) {
+    displayHeight = availableH;
+    displayWidth = Math.floor(displayHeight * ratio);
   }
 
   canvas.width = displayWidth;
   canvas.height = displayHeight;
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
+  canvas.style.maxWidth = "100%";
+  canvas.style.maxHeight = "100%";
+  canvas.style.margin = "0 auto";
 
   calcCellSize();
 }
