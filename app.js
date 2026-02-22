@@ -7,6 +7,8 @@ const appOverlay = document.getElementById("appOverlay");
 const closeOverlayBtn = document.getElementById("closeOverlayBtn");
 const openLeaderboardBtn = document.getElementById("openLeaderboardBtn");
 const openProfileBtn = document.getElementById("openProfileBtn");
+const openLeaderboardBtnMobile = document.getElementById("openLeaderboardBtnMobile");
+const openProfileBtnMobile = document.getElementById("openProfileBtnMobile");
 const metaModal = document.getElementById("metaModal");
 const leaderboardModal = document.getElementById("leaderboardModal");
 const closeMetaModalBtn = document.getElementById("closeMetaModalBtn");
@@ -1338,8 +1340,14 @@ function setupInput() {
     openSheet(leaderboardModal);
   });
   closeOverlayBtn.addEventListener("click", closeGameOverlay);
-  openLeaderboardBtn.addEventListener("click", () => openSheet(leaderboardModal));
-  openProfileBtn.addEventListener("click", () => openSheet(metaModal));
+  [openLeaderboardBtn, openLeaderboardBtnMobile].forEach((button) => {
+    if (!button) return;
+    button.addEventListener("click", () => openSheet(leaderboardModal));
+  });
+  [openProfileBtn, openProfileBtnMobile].forEach((button) => {
+    if (!button) return;
+    button.addEventListener("click", () => openSheet(metaModal));
+  });
   closeMetaModalBtn.addEventListener("click", closeSheets);
   closeLeaderboardModalBtn.addEventListener("click", closeSheets);
 
@@ -1421,12 +1429,14 @@ function fitCanvas() {
 }
 
 function ensureTopbarButtonsClickable() {
-  [openLeaderboardBtn, openProfileBtn].forEach((button) => {
-    if (!button) return;
-    button.style.pointerEvents = "auto";
-    button.style.position = "relative";
-    button.style.zIndex = "5";
-  });
+  [openLeaderboardBtn, openProfileBtn, openLeaderboardBtnMobile, openProfileBtnMobile].forEach(
+    (button) => {
+      if (!button) return;
+      button.style.pointerEvents = "auto";
+      button.style.position = "relative";
+      button.style.zIndex = "5";
+    }
+  );
 }
 
 function renderLoop(now) {
