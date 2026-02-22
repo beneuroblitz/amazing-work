@@ -567,6 +567,14 @@ body.is-playing .hud p {
   }
 
   body.is-playing .difficulty {
-    margin-bottom: -1px;
+    display: none;
+  }
+
+  body.is-playing .game-shell {
+    grid-template-rows: auto 1fr;
+  }
+
+  body.is-playing .canvas-wrap {
+    margin-top: 2px;
   }
 }

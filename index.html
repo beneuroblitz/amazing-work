@@ -74,80 +74,85 @@
           <p>Mobil: sliden/swipen. Preview mit 3-2-1-Go, dann Fog. Bei Strike verlierst du 1 Blitz.</p>
         </footer>
       </main>
+
+      <section id="metaModal" class="sheet is-hidden" aria-live="polite">
+        <article class="sheet-card">
+          <div class="sheet-head">
+            <h2>Profil & Login</h2>
+            <button id="closeMetaModalBtn" class="icon-btn" aria-label="Schliessen">✕</button>
+          </div>
+
+          <section class="profile" aria-label="Profil und Highscore">
+            <div class="profile-row">
+              <label for="profileInput">Profil:</label>
+              <input id="profileInput" type="text" maxlength="18" placeholder="Dein Name" />
+              <button id="saveProfileBtn" class="btn">Speichern</button>
+            </div>
+            <p id="profileText">Profil: Player</p>
+            <p id="highscoreText">Highscore: 0</p>
+            <p id="unlockText">Freigeschaltet: Easy</p>
+          </section>
+
+          <section class="auth" aria-label="Anmeldung">
+            <div class="auth-row">
+              <input id="emailInput" type="email" placeholder="E-Mail" />
+              <input id="passwordInput" type="password" placeholder="Passwort" />
+            </div>
+            <div class="auth-row">
+              <button id="loginBtn" class="btn">Login</button>
+              <button id="registerBtn" class="btn">Registrieren</button>
+              <button id="googleLoginBtn" class="btn">Google</button>
+              <button id="logoutBtn" class="btn" disabled>Logout</button>
+            </div>
+            <p id="authStatusText">Gastmodus: Lokaler Highscore aktiv.</p>
+          </section>
+        </article>
+      </section>
+
+      <section id="leaderboardModal" class="sheet is-hidden" aria-live="polite">
+        <article class="sheet-card">
+          <div class="sheet-head">
+            <h2>Leaderboard</h2>
+            <button id="closeLeaderboardModalBtn" class="icon-btn" aria-label="Schliessen">✕</button>
+          </div>
+          <section class="leaderboard" aria-label="Leaderboard">
+            <ol id="leaderboardList">
+              <li>Keine Eintraege</li>
+            </ol>
+          </section>
+        </article>
+      </section>
+
+      <section id="resultOverlay" class="result-overlay is-hidden" aria-live="polite">
+        <article class="result-card">
+          <h2 id="resultTitle">LEVEL CLEAR</h2>
+          <p id="resultSummary">Zeit: 0s | Fehler: 0 | Punkte: 0</p>
+          <p id="resultAuthHint">Melde dich an, um deinen Fortschritt online zu speichern.</p>
+          <ol id="resultTopList" class="result-toplist is-hidden"></ol>
+          <div class="result-actions">
+            <button id="resultPrimaryBtn" class="btn primary">Naechstes Level</button>
+            <button id="resultSecondaryBtn" class="btn ghost">Abbrechen</button>
+          </div>
+          <div class="result-auth-actions">
+            <button id="resultRegisterBtn" class="btn">Registrieren</button>
+            <button id="resultGoogleBtn" class="btn">Google Login</button>
+            <button id="resultCloseAppBtn" class="btn ghost">Beenden</button>
+          </div>
+        </article>
+      </section>
+
+      <section
+        id="loadingOverlay"
+        class="loading-overlay is-hidden"
+        aria-live="assertive"
+        aria-busy="true"
+      >
+        <div class="loading-card">
+          <div class="spinner" aria-hidden="true"></div>
+          <p id="loadingText">Lade...</p>
+        </div>
+      </section>
     </div>
-
-    <section id="metaModal" class="sheet is-hidden" aria-live="polite">
-      <article class="sheet-card">
-        <div class="sheet-head">
-          <h2>Profil & Login</h2>
-          <button id="closeMetaModalBtn" class="icon-btn" aria-label="Schliessen">✕</button>
-        </div>
-
-        <section class="profile" aria-label="Profil und Highscore">
-          <div class="profile-row">
-            <label for="profileInput">Profil:</label>
-            <input id="profileInput" type="text" maxlength="18" placeholder="Dein Name" />
-            <button id="saveProfileBtn" class="btn">Speichern</button>
-          </div>
-          <p id="profileText">Profil: Player</p>
-          <p id="highscoreText">Highscore: 0</p>
-          <p id="unlockText">Freigeschaltet: Easy</p>
-        </section>
-
-        <section class="auth" aria-label="Anmeldung">
-          <div class="auth-row">
-            <input id="emailInput" type="email" placeholder="E-Mail" />
-            <input id="passwordInput" type="password" placeholder="Passwort" />
-          </div>
-          <div class="auth-row">
-            <button id="loginBtn" class="btn">Login</button>
-            <button id="registerBtn" class="btn">Registrieren</button>
-            <button id="googleLoginBtn" class="btn">Google</button>
-            <button id="logoutBtn" class="btn" disabled>Logout</button>
-          </div>
-          <p id="authStatusText">Gastmodus: Lokaler Highscore aktiv.</p>
-        </section>
-      </article>
-    </section>
-
-    <section id="leaderboardModal" class="sheet is-hidden" aria-live="polite">
-      <article class="sheet-card">
-        <div class="sheet-head">
-          <h2>Leaderboard</h2>
-          <button id="closeLeaderboardModalBtn" class="icon-btn" aria-label="Schliessen">✕</button>
-        </div>
-        <section class="leaderboard" aria-label="Leaderboard">
-          <ol id="leaderboardList">
-            <li>Keine Eintraege</li>
-          </ol>
-        </section>
-      </article>
-    </section>
-
-    <section id="resultOverlay" class="result-overlay is-hidden" aria-live="polite">
-      <article class="result-card">
-        <h2 id="resultTitle">LEVEL CLEAR</h2>
-        <p id="resultSummary">Zeit: 0s | Fehler: 0 | Punkte: 0</p>
-        <p id="resultAuthHint">Melde dich an, um deinen Fortschritt online zu speichern.</p>
-        <ol id="resultTopList" class="result-toplist is-hidden"></ol>
-        <div class="result-actions">
-          <button id="resultPrimaryBtn" class="btn primary">Naechstes Level</button>
-          <button id="resultSecondaryBtn" class="btn ghost">Abbrechen</button>
-        </div>
-        <div class="result-auth-actions">
-          <button id="resultRegisterBtn" class="btn">Registrieren</button>
-          <button id="resultGoogleBtn" class="btn">Google Login</button>
-          <button id="resultCloseAppBtn" class="btn ghost">Beenden</button>
-        </div>
-      </article>
-    </section>
-
-    <section id="loadingOverlay" class="loading-overlay is-hidden" aria-live="assertive" aria-busy="true">
-      <div class="loading-card">
-        <div class="spinner" aria-hidden="true"></div>
-        <p id="loadingText">Lade...</p>
-      </div>
-    </section>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
