@@ -395,14 +395,35 @@ function pushHighscore(score) {
 }
 
 function pushLeaderboard(score) {
-  const row = {
-    name: state.profileName,
-    score,
-    mode: DIFFICULTY[state.difficulty].name,
-    level: state.level,
-    at: Date.now(),
-  };
-  state.leaderboard.push(row);
+  const modeName = DIFFICULTY[state.difficulty].name;
+  const rowName = state.user?.displayName || state.profileName;
+  const existingIndex = state.leaderboard.findIndex(
+    (row) => row.name === rowName && row.mode === modeName
+  );
+
+  if (existingIndex >= 0) {
+    if ((state.leaderboard[existingIndex]?.score || 0) >= score) {
+      renderLeaderboard();
+      return;
+    }
+    state.leaderboard[existingIndex] = {
+      ...state.leaderboard[existingIndex],
+      name: rowName,
+      score,
+      mode: modeName,
+      level: state.level,
+      at: Date.now(),
+    };
+  } else {
+    state.leaderboard.push({
+      name: rowName,
+      score,
+      mode: modeName,
+      level: state.level,
+      at: Date.now(),
+    });
+  }
+
   state.leaderboard.sort((a, b) => b.score - a.score);
   state.leaderboard = state.leaderboard.slice(0, 20);
   saveLocalLeaderboard();
@@ -572,14 +593,28 @@ async function fetchCloudLeaderboard() {
 async function submitCloudScore(score) {
   if (!state.cloudEnabled || !state.user || !window.firebase?.firestore) return;
   try {
-    await window.firebase.firestore().collection("mazeLeaderboard").add({
+    const docId = `${state.user.uid}_${state.difficulty}`;
+    const docRef = window.firebase.firestore().collection("mazeLeaderboard").doc(docId);
+    const existing = await docRef.get();
+    const existingData = existing.exists ? existing.data() : null;
+    const existingScore = Number(existingData?.score);
+    if (existing.exists && Number.isFinite(existingScore) && existingScore >= score) {
+      return;
+    }
+
+    const payload = {
       uid: state.user.uid,
       name: state.user.displayName || state.profileName,
       score,
       mode: DIFFICULTY[state.difficulty].name,
       level: state.level,
-      createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
-    });
+      updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    if (!existing.exists) {
+      payload.createdAt = window.firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    await docRef.set(payload, { merge: true });
     await fetchCloudLeaderboard();
   } catch (_err) {
     // keep playing with local storage even if cloud fails
@@ -1157,8 +1192,6 @@ function move(dirName) {
     updateModeLocks();
     statusText.textContent = `Level geschafft! +${levelScore} Punkte.`;
     pushHighscore(state.score);
-    pushLeaderboard(state.score);
-    submitCloudScore(state.score);
     state.winBannerUntil = performance.now() + 1500;
     statusText.textContent = `Level Clear! +${levelScore} Punkte`;
     clearTimeout(state.levelAdvanceTimer);
