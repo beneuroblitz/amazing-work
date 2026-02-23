@@ -556,7 +556,7 @@ async function fetchCloudLeaderboard() {
       .collection("mazeLeaderboard")
       .where("mode", "==", currentMode)
       .orderBy("score", "desc")
-      .limit(20)
+      .limit(10)
       .get();
 
     const rows = snapshot.docs.map((doc) => doc.data());
@@ -574,7 +574,7 @@ async function submitCloudScore(score) {
   try {
     await window.firebase.firestore().collection("mazeLeaderboard").add({
       uid: state.user.uid,
-      name: state.profileName,
+      name: state.user.displayName || state.profileName,
       score,
       mode: DIFFICULTY[state.difficulty].name,
       level: state.level,
@@ -600,6 +600,11 @@ function initAuth() {
     state.user = user || null;
     logoutBtn.disabled = !state.user;
     if (state.user) {
+      if (state.user.displayName) {
+        state.profileName = state.user.displayName.trim().slice(0, 18) || state.profileName;
+        localStorage.setItem(PROFILE_KEY, state.profileName);
+        renderProfile();
+      }
       setAuthStatus(`Angemeldet: ${state.user.email || "User"}`);
       await fetchCloudLeaderboard();
     } else {
@@ -625,7 +630,10 @@ async function registerWithEmail() {
   try {
     state.cloudBusy = true;
     setLoadingOverlay(true, "Registriere Konto...");
-    await window.firebase.auth().createUserWithEmailAndPassword(email, password);
+    const cred = await window.firebase.auth().createUserWithEmailAndPassword(email, password);
+    if (cred?.user && state.profileName) {
+      await cred.user.updateProfile({ displayName: state.profileName });
+    }
     setAuthStatus("Registrierung erfolgreich.");
   } catch (err) {
     setAuthStatus(formatAuthError(err, "Registrierung"));
@@ -1135,10 +1143,12 @@ function move(dirName) {
     state.phase = "done";
     clearInterval(state.timer);
     state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
-    const levelScore = Math.max(
-      50,
-      state.size * 120 + state.lives * 60 - state.moves * 4 - state.elapsed * 2
-    );
+    const basePoints = state.size * state.size * 10;
+    const lifeBonus = state.lives === MAX_LIVES ? 200 : state.lives * 50;
+    const rawScore = basePoints + lifeBonus;
+    const multiplierMap = { easy: 1, medium: 1.5, hard: 2 };
+    const multiplier = multiplierMap[state.difficulty] || 1;
+    const levelScore = Math.floor(rawScore * multiplier);
     state.lastLevelTime = state.elapsed;
     state.lastLevelErrors = state.levelErrors;
     state.lastLevelPoints = levelScore;
@@ -1363,10 +1373,17 @@ function setupInput() {
     button.addEventListener("click", () => setDifficulty(button.dataset.mode));
   });
 
-  saveProfileBtn.addEventListener("click", () => {
+  saveProfileBtn.addEventListener("click", async () => {
     const value = profileInput.value.trim().slice(0, 18);
     state.profileName = value || "Player";
     localStorage.setItem(PROFILE_KEY, state.profileName);
+    if (state.user) {
+      try {
+        await state.user.updateProfile({ displayName: state.profileName });
+      } catch (_err) {
+        setAuthStatus("Profil lokal gespeichert, Firebase-Name konnte nicht aktualisiert werden.");
+      }
+    }
     renderProfile();
     renderHighscore();
     renderLeaderboard();
