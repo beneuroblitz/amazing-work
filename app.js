@@ -108,6 +108,7 @@ const state = {
   profileName: "Player",
   highscores: [],
   leaderboard: [],
+  leaderboardUnsubscribe: null,
   user: null,
   authReady: false,
   cloudEnabled: false,
@@ -569,24 +570,50 @@ function getCloudIssueMessage() {
 
 async function fetchCloudLeaderboard() {
   if (!state.cloudEnabled || !window.firebase?.firestore) return;
+  if (state.leaderboardUnsubscribe) {
+    state.leaderboardUnsubscribe();
+    state.leaderboardUnsubscribe = null;
+  }
   try {
     setLoadingOverlay(true, "Leaderboard wird geladen...");
     const currentMode = DIFFICULTY[state.difficulty].name;
-    const snapshot = await window.firebase
+    state.leaderboardUnsubscribe = window.firebase
       .firestore()
       .collection("mazeLeaderboard")
       .where("mode", "==", currentMode)
       .orderBy("score", "desc")
       .limit(10)
-      .get();
-
-    const rows = snapshot.docs.map((doc) => doc.data());
-    state.leaderboard = rows;
-    renderLeaderboard();
+      .onSnapshot(
+        (snapshot) => {
+          const rows = snapshot.docs.map((doc) => doc.data());
+          state.leaderboard = rows;
+          renderLeaderboard();
+          renderTopListPreview();
+          setLoadingOverlay(false);
+        },
+        (_err) => {
+          setLoadingOverlay(false);
+        }
+      );
   } catch (_err) {
     // keep local leaderboard fallback
-  } finally {
     setLoadingOverlay(false);
+  }
+}
+
+async function syncPersonalHighscoreFromCloud() {
+  if (!state.user || !state.cloudEnabled || !window.firebase?.firestore) return;
+  try {
+    const docId = `${state.user.uid}_${state.difficulty}`;
+    const snapshot = await window.firebase.firestore().collection("mazeLeaderboard").doc(docId).get();
+    if (!snapshot.exists) return;
+    const cloudScore = Number(snapshot.data()?.score);
+    const localBest = Number(state.highscores[0]?.score || 0);
+    if (Number.isFinite(cloudScore) && cloudScore > localBest) {
+      pushHighscore(cloudScore);
+    }
+  } catch (_err) {
+    // local highscore remains fallback
   }
 }
 
@@ -642,7 +669,12 @@ function initAuth() {
       }
       setAuthStatus(`Angemeldet: ${state.user.email || "User"}`);
       await fetchCloudLeaderboard();
+      await syncPersonalHighscoreFromCloud();
     } else {
+      if (state.leaderboardUnsubscribe) {
+        state.leaderboardUnsubscribe();
+        state.leaderboardUnsubscribe = null;
+      }
       setAuthStatus("Gastmodus: Lokaler Highscore aktiv.");
     }
     if (!resultOverlay.classList.contains("is-hidden") && state.overlayType) {
@@ -1322,6 +1354,7 @@ function setDifficulty(mode) {
 
   if (state.user) {
     fetchCloudLeaderboard();
+    syncPersonalHighscoreFromCloud();
   }
 
   if (state.hasStarted) {
