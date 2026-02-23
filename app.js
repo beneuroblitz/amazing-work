@@ -2,7 +2,6 @@ const canvas = document.getElementById("mazeCanvas");
 const ctx = canvas.getContext("2d");
 const launcher = document.getElementById("launcher");
 const launcherPlayBtn = document.getElementById("launcherPlayBtn");
-const launcherLeaderboardBtn = document.getElementById("launcherLeaderboardBtn");
 const appOverlay = document.getElementById("appOverlay");
 const closeOverlayBtn = document.getElementById("closeOverlayBtn");
 const openLeaderboardBtn = document.getElementById("openLeaderboardBtn");
@@ -465,11 +464,10 @@ function showResultOverlay(type) {
 
   if (type === "game-over") {
     resultTitle.textContent = "GAME OVER";
-    resultSummary.textContent = `Gesamtpunkte: ${state.score} | Fehler gesamt: ${state.runErrors}`;
+    resultSummary.textContent = `Gesamtpunkte: ${state.score}`;
     resultPrimaryBtn.textContent = "Neues Spiel";
-    resultSecondaryBtn.textContent = "Schliessen";
     resultPrimaryBtn.style.display = "";
-    resultSecondaryBtn.style.display = "";
+    if (resultSecondaryBtn) resultSecondaryBtn.style.display = "none";
     resultAuthHint.textContent = state.user
       ? "Dein Lauf ist beendet. Dein Highscore wurde fuer das Leaderboard beruecksichtigt."
       : "Melde dich an, um deinen Highscore im Leaderboard zu sichern!";
@@ -552,18 +550,18 @@ async function fetchCloudLeaderboard() {
   if (!state.cloudEnabled || !window.firebase?.firestore) return;
   try {
     setLoadingOverlay(true, "Leaderboard wird geladen...");
+    const currentMode = DIFFICULTY[state.difficulty].name;
     const snapshot = await window.firebase
       .firestore()
       .collection("mazeLeaderboard")
+      .where("mode", "==", currentMode)
       .orderBy("score", "desc")
       .limit(20)
       .get();
 
     const rows = snapshot.docs.map((doc) => doc.data());
-    if (rows.length) {
-      state.leaderboard = rows;
-      renderLeaderboard();
-    }
+    state.leaderboard = rows;
+    renderLeaderboard();
   } catch (_err) {
     // keep local leaderboard fallback
   } finally {
@@ -1101,7 +1099,7 @@ function drawWinBanner(now) {
   ctx.font = `800 ${Math.max(16, state.cellSize * 0.52)}px "Open Sans", Calibri, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("Level Clear!", canvas.width / 2, canvas.height / 2);
+  ctx.fillText(`Level Clear in ${state.lastLevelTime}s!`, canvas.width / 2, canvas.height / 2);
   ctx.restore();
 }
 
@@ -1300,6 +1298,10 @@ function setDifficulty(mode) {
     button.classList.toggle("is-active", button.dataset.mode === mode);
   });
 
+  if (state.user) {
+    fetchCloudLeaderboard();
+  }
+
   if (state.hasStarted) {
     hideResultOverlay();
     state.lives = MAX_LIVES;
@@ -1316,6 +1318,15 @@ function setDifficulty(mode) {
 
 function setupInput() {
   window.addEventListener("keydown", onKeyDown, { passive: false });
+
+  function openLeaderboardOrAuthGate() {
+    if (!state.user) {
+      setAuthStatus("Melde dich an, um das globale Leaderboard zu sehen!");
+      openSheet(metaModal);
+      return;
+    }
+    openSheet(leaderboardModal);
+  }
 
   function startFreshRun() {
     hideResultOverlay();
@@ -1336,13 +1347,10 @@ function setupInput() {
       startFreshRun();
     }
   });
-  launcherLeaderboardBtn.addEventListener("click", () => {
-    openSheet(leaderboardModal);
-  });
   closeOverlayBtn.addEventListener("click", closeGameOverlay);
   [openLeaderboardBtn, openLeaderboardBtnMobile].forEach((button) => {
     if (!button) return;
-    button.addEventListener("click", () => openSheet(leaderboardModal));
+    button.addEventListener("click", openLeaderboardOrAuthGate);
   });
   [openProfileBtn, openProfileBtnMobile].forEach((button) => {
     if (!button) return;
@@ -1384,11 +1392,17 @@ function setupInput() {
     }
   });
 
-  resultSecondaryBtn.addEventListener("click", () => {
-    hideResultOverlay();
-  });
+  if (resultSecondaryBtn) {
+    resultSecondaryBtn.addEventListener("click", () => {
+      hideResultOverlay();
+    });
+  }
 
-  resultRegisterBtn.addEventListener("click", registerWithEmail);
+  resultRegisterBtn.addEventListener("click", () => {
+    hideResultOverlay();
+    openSheet(metaModal);
+    setAuthStatus("Melde dich an, um deinen Highscore im Leaderboard zu sichern!");
+  });
   resultGoogleBtn.addEventListener("click", loginWithGoogle);
   resultCloseAppBtn.addEventListener("click", closeGameOverlay);
 }

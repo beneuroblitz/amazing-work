@@ -13,7 +13,20 @@
   <body>
     <section id="launcher" class="launcher" aria-label="Spiel starten">
       <div class="launcher-card">
-        <button id="launcherLeaderboardBtn" class="icon-btn" aria-label="Leaderboard oeffnen">🏆</button>
+        <div class="launcher-icon" style="position: absolute; top: 12px; right: 12px;">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--navy)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
         <h1 class="launcher-title">AMAZING</h1>
         <p class="launcher-subtitle">Memory Maze</p>
         <p style="margin: 10px 0 2px; color: var(--navy); font-weight: 800; font-size: 1.05rem;">
@@ -127,12 +140,12 @@
         <article class="result-card">
           <h2 id="resultTitle">LEVEL CLEAR</h2>
           <p id="resultSummary">Zeit: 0s | Fehler: 0 | Punkte: 0</p>
-          <p id="resultAuthHint">Melde dich an, um deinen Fortschritt online zu speichern.</p>
+          <h4 id="resultTopTitle" style="margin: 10px 0 4px; color: var(--navy);">Globale Top 3</h4>
           <ol id="resultTopList" class="result-toplist is-hidden"></ol>
           <div class="result-actions">
             <button id="resultPrimaryBtn" class="btn primary">Naechstes Level</button>
-            <button id="resultSecondaryBtn" class="btn ghost">Abbrechen</button>
           </div>
+          <p id="resultAuthHint">Melde dich an, um deinen Fortschritt online zu speichern.</p>
           <div class="result-auth-actions">
             <button id="resultRegisterBtn" class="btn">Registrieren</button>
             <button id="resultGoogleBtn" class="btn">Google Login</button>
@@ -153,6 +166,7 @@
         </div>
       </section>
     </div>
+    <div id="landscapeHint">Bitte drehe dein Geraet ins Hochformat.</div>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
