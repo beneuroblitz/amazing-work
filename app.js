@@ -711,27 +711,6 @@ async function loginWithGoogle() {
     state.cloudBusy = true;
     setLoadingOverlay(true, "Google-Login startet...");
     const provider = new window.firebase.auth.GoogleAuthProvider();
-    const inIframe = (() => {
-      try {
-        return window.self !== window.top;
-      } catch (_err) {
-        return true;
-      }
-    })();
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    if (inIframe) {
-      await window.firebase.auth().signInWithPopup(provider);
-      setAuthStatus("Google-Login erfolgreich.");
-      return;
-    }
-
-    if (isMobile) {
-      await window.firebase.auth().signInWithRedirect(provider);
-      setAuthStatus("Google-Login gestartet (Redirect)...");
-      return;
-    }
-
     await window.firebase.auth().signInWithPopup(provider);
     setAuthStatus("Google-Login erfolgreich.");
   } catch (err) {
